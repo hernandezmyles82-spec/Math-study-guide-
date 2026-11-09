@@ -1,0 +1,696 @@
+/* UI: hash-router views for profiles, dashboard, notes, quizzes, test prep, categories and settings. */
+(function () {
+  'use strict';
+  const { U, Store, Library, Generators, Quiz, parseNotes } = window.MSG;
+  const $app = document.getElementById('app');
+  const esc = U.esc;
+  let session = null; // active quiz
+
+  /* ---------- formatting ---------- */
+  const fmt = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
+  function md(text) {
+    const lines = String(text || '').replace(/\r\n?/g, '\n').split('\n');
+    const inline = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/`([^`]+)`/g, '<code>$1</code>');
+    let html = '', list = null, table = [];
+    const flushList = () => { if (list) { html += '</' + list + '>'; list = null; } };
+    const flushTable = () => {
+      if (!table.length) return;
+      const rows = table.filter((r) => !/^[|\s:\-]+$/.test(r)).map((r) => r.replace(/^\||\|$/g, '').split('|'));
+      html += '<div class="table-wrap"><table>' + rows.map((r, i) => '<tr>' + r.map((c) => (i ? '<td>' : '<th>') + inline(c.trim()) + (i ? '</td>' : '</th>')).join('') + '</tr>').join('') + '</table></div>';
+      table = [];
+    };
+    lines.forEach((raw) => {
+      const line = raw.trim();
+      if (line.startsWith('|')) { flushList(); table.push(line); return; }
+      flushTable();
+      let m;
+      if (!line) { flushList(); return; }
+      if ((m = line.match(/^(#{1,6})\s+(.*)$/))) { flushList(); const lv = Math.min(6, m[1].length + 2); html += `<h${lv}>${inline(m[2])}</h${lv}>`; return; }
+      if ((m = line.match(/^(?:[-*+•]\s+)(.*)$/))) { if (list !== 'ul') { flushList(); html += '<ul>'; list = 'ul'; } html += '<li>' + inline(m[1]) + '</li>'; return; }
+      if ((m = line.match(/^\d+[.)]\s+(.*)$/))) { if (list !== 'ol') { flushList(); html += '<ol>'; list = 'ol'; } html += '<li>' + inline(m[1]) + '</li>'; return; }
+      if (/^(-{3,}|\*{3,})$/.test(line)) { flushList(); html += '<hr>'; return; }
+      flushList();
+      html += '<p>' + inline(line) + '</p>';
+    });
+    flushList(); flushTable();
+    return html;
+  }
+  function renderMath(el) {
+    if (!window.renderMathInElement) return;
+    try {
+      window.renderMathInElement(el || $app, {
+        delimiters: [
+          { left: '$$', right: '$$', display: true }, { left: '\\[', right: '\\]', display: true },
+          { left: '\\(', right: '\\)', display: false }, { left: '$', right: '$', display: false }
+        ],
+        throwOnError: false,
+        ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code', 'option', 'input']
+      });
+    } catch (e) { /* leave raw text */ }
+  }
+  window.MSG.rerenderMath = () => renderMath($app);
+
+  const countdown = (n) => (n === 0 ? 'Today!' : n === 1 ? 'Tomorrow' : 'in ' + n + ' days');
+  const pct = (r, t) => (t ? Math.round((100 * r) / t) : null);
+  const plural = (n, w) => n + ' ' + w + (n === 1 ? '' : 's');
+  function toast(msg) {
+    const t = document.createElement('div');
+    t.className = 'toast'; t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(() => t.classList.add('show'), 10);
+    setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 300); }, 2600);
+  }
+  function go(hash) { if (location.hash === hash) route(); else location.hash = hash; }
+  function mastery(cards) {
+    if (!cards.length) return 0;
+    return Math.round(100 * cards.reduce((s, c) => s + Math.min(1, c.srs.interval / 7), 0) / cards.length);
+  }
+
+  /* ---------- views ---------- */
+  function welcome() {
+    const profiles = Store.profiles();
+    return `
+      <section class="hero">
+        <h1>Turn your math notes into quizzes.</h1>
+        <p class="lead">Paste notes from class, from a study guide, or from ChatGPT, Claude or any AI. We turn them into study cards, quiz you over time, and help you cram the night before a test. No notes? Practice any of ${Library.categories.length} math topics from arithmetic to topology.</p>
+        <div class="steps">
+          <div class="step"><b>1</b><span>Paste or upload your notes</span></div>
+          <div class="step"><b>2</b><span>We build study cards automatically</span></div>
+          <div class="step"><b>3</b><span>Get quizzed: daily review, test prep, or cram mode</span></div>
+        </div>
+      </section>
+      <section class="grid two">
+        <div class="card">
+          <h2>${profiles.length ? 'Create a new profile' : 'Create your profile'}</h2>
+          <form data-form="create-profile" class="stack">
+            <label>Your name<input name="name" required maxlength="40" placeholder="e.g. Myles" autocomplete="off"></label>
+            <button class="btn primary" type="submit">Start studying</button>
+          </form>
+          <p class="muted small">Have a backup file? <label class="link-like">Import it<input type="file" accept=".json,application/json" data-change="import-backup" hidden></label></p>
+        </div>
+        ${profiles.length ? `<div class="card">
+          <h2>Choose a profile</h2>
+          <div class="stack">${profiles.map((p) => `<button class="btn profile-btn ${Store.current() && Store.current().id === p.id ? 'active' : ''}" data-action="pick-profile" data-id="${p.id}"><span class="avatar">${esc(p.name[0] || '?').toUpperCase()}</span><span>${esc(p.name)}<small>${plural(p.notes.length, 'note')} · ${plural(p.cards.length, 'card')}</small></span></button>`).join('')}</div>
+        </div>` : ''}
+      </section>`;
+  }
+
+  function dashboard() {
+    const p = Store.current();
+    const st = Store.stats();
+    const exams = Store.upcomingExams();
+    const hour = new Date().getHours();
+    const hello = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+
+    const topicStats = {};
+    p.cards.forEach((c) => {
+      const k = c.topic || 'General';
+      const t = topicStats[k] || (topicStats[k] = { right: 0, wrong: 0, kind: 'topic' });
+      t.right += c.stats.right; t.wrong += c.stats.wrong;
+    });
+    Object.entries(p.catStats).forEach(([id, s]) => { const c = Library.get(id); if (c) topicStats[c.name] = { right: s.right, wrong: s.wrong, kind: 'cat', id }; });
+    const weak = Object.entries(topicStats).filter(([, s]) => s.right + s.wrong >= 3).map(([k, s]) => [k, s, s.right / (s.right + s.wrong)]).sort((a, b) => a[2] - b[2]).filter((x) => x[2] < 0.85).slice(0, 4);
+
+    return `
+      <div class="page-head">
+        <div><h1>${hello}, ${esc(p.name)} 👋</h1><p class="muted">${st.streak ? `🔥 ${plural(st.streak, 'day')} study streak, keep it going!` : 'Study a little every day to build a streak.'}</p></div>
+        <a class="btn primary" href="#/notes/new">+ Add notes</a>
+      </div>
+      <div class="stats">
+        <div class="stat"><span>${st.due}</span>cards due</div>
+        <div class="stat"><span>${st.cards}</span>study cards</div>
+        <div class="stat"><span>${st.accuracy == null ? '—' : st.accuracy + '%'}</span>accuracy</div>
+        <div class="stat"><span>${st.mastered}</span>mastered</div>
+      </div>
+      <div class="grid two">
+        <div class="card highlight">
+          <h2>📅 Daily review</h2>
+          ${st.cards === 0 ? `<p>You don't have any study cards yet. Add your notes and we'll build them for you, or pick a topic from the math categories.</p>
+            <div class="row"><a class="btn primary" href="#/notes/new">Add my notes</a><a class="btn" href="#/categories">Browse categories</a></div>`
+          : st.due > 0 ? `<p>You have <b>${plural(st.due, 'card')}</b> ready for review. Cards you miss come back sooner, and cards you know come back later.</p>
+            <div class="row"><button class="btn primary" data-action="start-review">Start review (${Math.min(st.due, p.settings.dailyLimit)})</button><button class="btn" data-action="start-weak">Practice weakest</button></div>`
+          : `<p>✅ You're all caught up! Your next cards are due ${nextDueText()}.</p>
+            <div class="row"><button class="btn primary" data-action="start-weak">Practice my weakest cards</button></div>`}
+        </div>
+        <div class="card">
+          <h2>📝 Upcoming tests & quizzes</h2>
+          ${exams.length ? `<ul class="list">${exams.slice(0, 4).map((e) => { const n = U.daysUntil(e.date); return `<li><div><b>${esc(e.title)}</b> <span class="badge ${n <= 1 ? 'hot' : ''}">${countdown(n)}</span></div><div class="row tight"><button class="btn small primary" data-action="exam-quiz" data-id="${e.id}" data-mode="${n <= 1 ? 'cram' : 'quick'}">${n <= 1 ? 'Cram now' : 'Quick quiz'}</button></div></li>`; }).join('')}</ul>`
+          : `<p class="muted">Got a quiz or test coming up? Add it and we'll build a practice test from your notes.</p>`}
+          <a class="btn" href="#/exams">+ Add a test date</a>
+        </div>
+      </div>
+      ${weak.length ? `<div class="card"><h2>🎯 Weak spots to work on</h2><ul class="list">${weak.map(([k, s, r]) => `<li><div><b>${esc(k)}</b> <span class="muted small">${Math.round(r * 100)}% correct (${s.right}/${s.right + s.wrong})</span></div>${s.kind === 'cat' ? `<a class="btn small" href="#/category/${s.id}">Practice</a>` : `<button class="btn small" data-action="start-topic" data-topic="${esc(k)}">Practice</button>`}</li>`).join('')}</ul></div>` : ''}
+      <div class="grid two">
+        <div class="card">
+          <h2>📚 Recent notes</h2>
+          ${p.notes.length ? `<ul class="list">${p.notes.slice(0, 4).map((n) => `<li><a href="#/note/${n.id}"><b>${esc(n.title)}</b></a><span class="muted small">${plural(Store.cardsForNote(n.id).length, 'card')}</span></li>`).join('')}</ul><a href="#/notes">All notes →</a>` : '<p class="muted">No notes yet.</p>'}
+        </div>
+        <div class="card">
+          <h2>🏁 Recent quizzes</h2>
+          ${p.sessions.length ? `<ul class="list">${p.sessions.slice(0, 5).map((s) => `<li><span>${esc(s.title)}</span><span class="score ${pct(s.right, s.total) >= 80 ? 'good' : pct(s.right, s.total) >= 60 ? 'ok' : 'bad'}">${s.right}/${s.total}</span></li>`).join('')}</ul>` : '<p class="muted">Your quiz results will show up here.</p>'}
+        </div>
+      </div>`;
+  }
+  function nextDueText() {
+    const cards = Store.current().cards;
+    if (!cards.length) return 'soon';
+    const next = Math.min(...cards.map((c) => c.srs.due));
+    const mins = Math.round((next - Date.now()) / 60000);
+    if (mins < 60) return 'in ' + plural(Math.max(1, mins), 'minute');
+    if (mins < 1440) return 'in ' + plural(Math.round(mins / 60), 'hour');
+    return 'in ' + plural(Math.round(mins / 1440), 'day');
+  }
+
+  function notesList() {
+    const p = Store.current();
+    return `
+      <div class="page-head"><div><h1>My Notes</h1><p class="muted">Every set of notes becomes study cards you can be quizzed on.</p></div><a class="btn primary" href="#/notes/new">+ Add notes</a></div>
+      ${p.notes.length ? `<div class="grid three">${p.notes.map((n) => {
+        const cards = Store.cardsForNote(n.id);
+        const cat = Library.get(n.categoryId);
+        return `<div class="card note-card">
+          <a href="#/note/${n.id}" class="note-title">${esc(n.title)}</a>
+          <div class="muted small">${esc(n.course || (cat ? cat.name : ''))} ${n.course || cat ? '·' : ''} ${new Date(n.updatedAt).toLocaleDateString()}</div>
+          <div class="meter"><div style="width:${mastery(cards)}%"></div></div>
+          <div class="muted small">${plural(cards.length, 'card')} · ${mastery(cards)}% mastered</div>
+          <div class="row tight"><button class="btn small primary" data-action="quiz-note" data-id="${n.id}" ${cards.length ? '' : 'disabled'}>Quiz me</button><a class="btn small" href="#/note/${n.id}">Open</a></div>
+        </div>`; }).join('')}</div>`
+      : `<div class="card empty"><p>📄 No notes yet.</p><p class="muted">Paste in notes from class, a study guide, or an AI chat and we'll turn them into quizzes.</p><a class="btn primary" href="#/notes/new">Add my first notes</a></div>`}`;
+  }
+
+  const AI_PROMPT = `Turn my math study guide into study notes I can paste into a quiz website. Use exactly this format:
+
+## Topic name
+- Term: definition
+- Formula name: formula (write math in LaTeX, like $x^2$ or $\\frac{a}{b}$)
+
+Q: a practice question
+A: the answer
+
+Example: a practice problem
+Solution: the steps
+Answer: the final answer
+
+Include every key vocabulary word, every formula, and at least 10 practice questions with short answers.`;
+
+  function categoryOptions(selected) {
+    return '<option value="">— none —</option>' + Library.LEVELS.map((lv) => `<optgroup label="${esc(lv)}">${Library.categories.filter((c) => c.level === lv).map((c) => `<option value="${c.id}" ${c.id === selected ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</optgroup>`).join('');
+  }
+
+  function noteEditor(id) {
+    const n = id ? Store.note(id) : null;
+    if (id && !n) return notFound();
+    return `
+      <div class="page-head"><div><h1>${n ? 'Edit notes' : 'Add notes'}</h1><p class="muted">Paste notes from anywhere, or upload a .txt / .md file. Math in LaTeX ($x^2$) is supported.</p></div></div>
+      <div class="grid editor">
+        <form class="card stack" data-form="save-note" data-id="${n ? n.id : ''}">
+          <div class="grid two tight">
+            <label>Title<input name="title" required maxlength="100" value="${n ? esc(n.title) : ''}" placeholder="e.g. Unit 4: Derivatives"></label>
+            <label>Class (optional)<input name="course" maxlength="60" value="${n ? esc(n.course) : ''}" placeholder="e.g. AP Calculus AB"></label>
+          </div>
+          <label>Math topic (optional; adds practice problems to your quizzes)<select name="categoryId">${categoryOptions(n ? n.categoryId : '')}</select></label>
+          <label>Your notes
+            <textarea name="content" rows="18" required data-input="preview-notes" placeholder="Paste your notes here...&#10;&#10;## Derivatives&#10;- Derivative: the instantaneous rate of change&#10;- Power Rule: $\\frac{d}{dx}x^n = nx^{n-1}$&#10;&#10;Q: What is the derivative of x^3?&#10;A: 3x^2">${n ? esc(n.content) : ''}</textarea>
+          </label>
+          <div class="row">
+            <label class="btn">📎 Upload .txt / .md<input type="file" accept=".txt,.md,.markdown,text/plain,text/markdown" data-change="load-file" hidden></label>
+            <span class="muted small" id="parseCount"></span>
+          </div>
+          <div id="parsePreview" class="preview"></div>
+          <div class="row"><button class="btn primary" type="submit">${n ? 'Save changes' : 'Save notes & build quiz'}</button><a class="btn" href="${n ? '#/note/' + n.id : '#/notes'}">Cancel</a></div>
+        </form>
+        <aside class="card tips">
+          <h3>💡 Tips for the best quizzes</h3>
+          <p class="small">We understand most notes, but these patterns work best:</p>
+          <ul class="small">
+            <li><code>## Topic</code> headings group your cards</li>
+            <li><code>Term: definition</code> → vocab question</li>
+            <li><code>Formula name: formula</code> → formula question</li>
+            <li><code>Q: ...</code> then <code>A: ...</code> → practice question</li>
+            <li><code>Example: ...</code> then <code>Solution/Answer: ...</code> → worked problem</li>
+            <li><code>**bold**</code> words in sentences → fill in the blank</li>
+            <li><code>front :: back</code> → your own flashcard</li>
+            <li><code>The {{chain rule}} is ...</code> → you choose the blank</li>
+          </ul>
+          <h3>🤖 Using ChatGPT, Claude, or another AI?</h3>
+          <p class="small">Give it your study guide along with this prompt, then paste its answer here:</p>
+          <pre class="ai-prompt" id="aiPrompt">${esc(AI_PROMPT)}</pre>
+          <button class="btn small" type="button" data-action="copy-prompt">Copy prompt</button>
+        </aside>
+      </div>`;
+  }
+
+  function previewNotes(textarea) {
+    const form = textarea.closest('form');
+    const cards = parseNotes(textarea.value, { title: form.title.value });
+    const count = document.getElementById('parseCount');
+    const prev = document.getElementById('parsePreview');
+    if (!count) return;
+    count.textContent = textarea.value.trim() ? (cards.length ? `✨ Found ${plural(cards.length, 'study card')}` : 'No cards found yet. Try "Term: definition" lines or Q:/A: pairs.') : '';
+    prev.innerHTML = cards.slice(0, 6).map((c) => `<div class="mini-card"><div>${fmt(c.front)}</div><div class="muted">${fmt(c.back)}</div></div>`).join('') + (cards.length > 6 ? `<div class="muted small">…and ${cards.length - 6} more</div>` : '');
+    renderMath(prev);
+  }
+
+  function noteView(id) {
+    const n = Store.note(id);
+    if (!n) return notFound();
+    const cards = Store.cardsForNote(id);
+    const cat = Library.get(n.categoryId);
+    const tab = sessionStorageGet('noteTab') || 'cards';
+    return `
+      <div class="page-head">
+        <div><a href="#/notes" class="muted small">← My Notes</a><h1>${esc(n.title)}</h1>
+        <p class="muted">${esc(n.course)}${n.course && cat ? ' · ' : ''}${cat ? `<a href="#/category/${cat.id}">${esc(cat.name)}</a>` : ''} · ${plural(cards.length, 'study card')} · ${mastery(cards)}% mastered</p></div>
+        <div class="row tight"><button class="btn primary" data-action="quiz-note" data-id="${n.id}" ${cards.length ? '' : 'disabled'}>Quiz me on this</button><a class="btn" href="#/note-edit/${n.id}">Edit</a><button class="btn danger" data-action="delete-note" data-id="${n.id}">Delete</button></div>
+      </div>
+      <div class="tabs"><button class="tab ${tab === 'cards' ? 'active' : ''}" data-action="note-tab" data-tab="cards">Study cards (${cards.length})</button><button class="tab ${tab === 'notes' ? 'active' : ''}" data-action="note-tab" data-tab="notes">My notes</button></div>
+      ${tab === 'notes' ? `<div class="card notes-body">${md(n.content)}</div>` : `
+        <div class="card">
+          ${cards.length ? '' : '<p class="muted">We couldn\'t find study cards in these notes. Edit them using the tips (like "Term: definition"), or add cards yourself below.</p>'}
+          <div class="card-list">${cards.map(cardRow).join('')}</div>
+          <form class="add-card" data-form="add-card" data-id="${n.id}">
+            <h3>Add your own card</h3>
+            <div class="grid two tight"><label>Question / front<textarea name="front" rows="2" required></textarea></label><label>Answer / back<textarea name="back" rows="2" required></textarea></label></div>
+            <button class="btn" type="submit">Add card</button>
+          </form>
+        </div>`}`;
+  }
+  function cardRow(c) {
+    const tot = c.stats.right + c.stats.wrong;
+    return `<div class="card-row" data-card="${c.id}">
+      <div class="cr-main"><div class="cr-front">${fmt(c.front)}</div><div class="cr-back">${fmt(c.back)}</div>
+      <div class="muted small">${esc(c.topic || '')}${tot ? ` · ${c.stats.right}/${tot} correct` : ' · not studied yet'}${c.srs.interval >= 7 ? ' · ⭐ mastered' : ''}</div></div>
+      <div class="cr-actions"><button class="icon-btn" title="Edit" data-action="edit-card" data-id="${c.id}">✏️</button><button class="icon-btn" title="Delete" data-action="delete-card" data-id="${c.id}">🗑️</button></div>
+    </div>`;
+  }
+  function sessionStorageGet(k) { try { return sessionStorage.getItem(k); } catch (e) { return null; } }
+  function sessionStorageSet(k, v) { try { sessionStorage.setItem(k, v); } catch (e) { /* ignore */ } }
+
+  function examsView() {
+    const p = Store.current();
+    const upcoming = Store.upcomingExams();
+    const past = p.exams.filter((e) => U.daysUntil(e.date) < 0);
+    const tomorrow = U.dateKey(Date.now() + 86400000);
+    return `
+      <div class="page-head"><div><h1>Test Prep</h1><p class="muted">Add your quiz or test date. We'll quiz you on the right notes and focus on what you miss.</p></div></div>
+      <div class="grid editor">
+        <div class="stack">
+          ${upcoming.length ? upcoming.map(examCard).join('') : '<div class="card empty"><p>📆 No upcoming tests.</p><p class="muted">Add one, even if it\'s tomorrow. Cram mode will drill you until you get everything right.</p></div>'}
+          ${past.length ? `<details class="card"><summary>Past tests (${past.length})</summary><ul class="list">${past.map((e) => `<li><span>${esc(e.title)} <span class="muted small">${e.date}</span></span><button class="btn small" data-action="delete-exam" data-id="${e.id}">Remove</button></li>`).join('')}</ul></details>` : ''}
+        </div>
+        <form class="card stack" data-form="add-exam">
+          <h2>+ Add a test or quiz</h2>
+          <label>What is it?<input name="title" required maxlength="80" placeholder="e.g. Chapter 5 Quiz"></label>
+          <label>Date<input name="date" type="date" required value="${tomorrow}"></label>
+          <fieldset><legend>Which of my notes are on it?</legend>
+            ${p.notes.length ? p.notes.map((n) => `<label class="check"><input type="checkbox" name="noteIds" value="${n.id}"> ${esc(n.title)}</label>`).join('') : '<p class="muted small">No notes yet. <a href="#/notes/new">Add notes</a> or choose topics below.</p>'}
+          </fieldset>
+          <fieldset><legend>Math topics on it (adds practice problems)</legend>
+            <div class="scroll-box">${Library.LEVELS.map((lv) => `<div class="muted small group-label">${esc(lv)}</div>` + Library.categories.filter((c) => c.level === lv).map((c) => `<label class="check"><input type="checkbox" name="categoryIds" value="${c.id}"> ${c.icon} ${esc(c.name)}</label>`).join('')).join('')}</div>
+          </fieldset>
+          <button class="btn primary" type="submit">Add test</button>
+        </form>
+      </div>`;
+  }
+  function examCard(e) {
+    const n = U.daysUntil(e.date);
+    const cards = Quiz.examCards(e);
+    const concepts = e.categoryIds.reduce((s, id) => s + ((Library.get(id) || { concepts: [] }).concepts.length), 0);
+    const total = cards.length + concepts;
+    const perDay = Math.ceil(total / Math.max(1, n));
+    const m = mastery(cards);
+    return `<div class="card exam ${n <= 1 ? 'urgent' : ''}">
+      <div class="row spread"><h2>${esc(e.title)}</h2><span class="badge ${n <= 1 ? 'hot' : ''}">${countdown(n)}</span></div>
+      <p class="muted small">${new Date(e.date + 'T00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
+       · ${e.noteIds.map((id) => Store.note(id)).filter(Boolean).map((x) => esc(x.title)).join(', ') || 'no notes'}
+       ${e.categoryIds.length ? ' · ' + e.categoryIds.map((id) => (Library.get(id) || {}).name).filter(Boolean).map(esc).join(', ') : ''}</p>
+      ${cards.length ? `<div class="meter"><div style="width:${m}%"></div></div><p class="small muted">${m}% of your cards for this test are mastered.</p>` : ''}
+      <p class="small">${n <= 1 ? '<b>Test is close!</b> Use <b>Cram mode</b>: it repeats every question you miss until you get it right.' : `📋 Study plan: about <b>${plural(perDay, 'question')}</b> a day until test day, then cram the night before.`}</p>
+      <div class="row tight">
+        <button class="btn small ${n > 1 ? 'primary' : ''}" data-action="exam-quiz" data-id="${e.id}" data-mode="quick">Quick quiz</button>
+        <button class="btn small" data-action="exam-quiz" data-id="${e.id}" data-mode="full">Full practice test</button>
+        <button class="btn small ${n <= 1 ? 'primary' : ''}" data-action="exam-quiz" data-id="${e.id}" data-mode="cram">🔥 Cram mode</button>
+        <button class="btn small ghost" data-action="delete-exam" data-id="${e.id}">Delete</button>
+      </div>
+    </div>`;
+  }
+
+  function categoriesView() {
+    const p = Store.current();
+    const q = (sessionStorageGet('catFilter') || '').toLowerCase();
+    return `
+      <div class="page-head"><div><h1>Math Categories</h1><p class="muted">No notes needed: practice problems and reference sheets for every level of math.</p></div>
+      <input class="search" type="search" placeholder="Search topics…" value="${esc(q)}" data-input="filter-cats" aria-label="Search topics"></div>
+      ${Library.LEVELS.map((lv) => {
+        const cats = Library.categories.filter((c) => c.level === lv && (!q || (c.name + ' ' + c.blurb + ' ' + c.concepts.map((k) => k.term).join(' ')).toLowerCase().includes(q)));
+        if (!cats.length) return '';
+        return `<h2 class="level">${esc(lv)}</h2><div class="grid three">${cats.map((c) => {
+          const s = p.catStats[c.id];
+          return `<a class="card cat-card" href="#/category/${c.id}"><span class="cat-icon">${c.icon}</span><span><b>${esc(c.name)}</b><span class="muted small">${esc(c.blurb)}</span>${s ? `<span class="small score ${pct(s.right, s.right + s.wrong) >= 80 ? 'good' : 'ok'}">${pct(s.right, s.right + s.wrong)}% · ${s.right + s.wrong} answered</span>` : ''}</span></a>`;
+        }).join('')}</div>`;
+      }).join('') || '<p class="muted">No topics match your search.</p>'}`;
+  }
+
+  function categoryView(id) {
+    const c = Library.get(id);
+    if (!c) return notFound();
+    const p = Store.current();
+    const s = p.catStats[id];
+    const added = Store.libraryCardsAdded(id);
+    const diff = Number(sessionStorageGet('difficulty') || 2);
+    return `
+      <div class="page-head"><div><a href="#/categories" class="muted small">← Categories</a><h1>${c.icon} ${esc(c.name)}</h1><p class="muted">${esc(c.level)} · ${esc(c.blurb)}</p></div></div>
+      <div class="grid editor">
+        <div class="card">
+          <h2>📖 Reference sheet</h2>
+          <dl class="ref">${c.concepts.map((k) => `<dt>${esc(k.term)}</dt><dd>${esc(k.def)}</dd>`).join('')}</dl>
+        </div>
+        <div class="stack">
+          <form class="card stack" data-form="practice" data-id="${id}">
+            <h2>✍️ Practice</h2>
+            <p class="small muted">${Generators.has(id) ? 'A new set of problems every time, mixed with concept questions.' : 'Concept questions from the reference sheet.'}</p>
+            <fieldset class="seg"><legend>Difficulty</legend>${['Easy', 'Medium', 'Hard'].map((l, i) => `<label><input type="radio" name="d" value="${i + 1}" ${diff === i + 1 ? 'checked' : ''}><span>${l}</span></label>`).join('')}</fieldset>
+            <label>Questions<select name="n">${[5, 10, 15, 20].map((n) => `<option ${n === p.settings.quizLength ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
+            <button class="btn primary" type="submit">Start practice</button>
+          </form>
+          <div class="card">
+            <h3>🔁 Remember it long-term</h3>
+            <p class="small">${added ? 'These key concepts are in your daily review deck.' : 'Add these key concepts to your daily review so they come back over time.'}</p>
+            <button class="btn small" data-action="${added ? 'remove-lib' : 'add-lib'}" data-id="${id}">${added ? 'Remove from my deck' : '+ Add ' + c.concepts.length + ' cards to my deck'}</button>
+          </div>
+          ${s ? `<div class="card"><h3>📊 Your stats</h3><p>${s.right} correct out of ${s.right + s.wrong} (${pct(s.right, s.right + s.wrong)}%)</p></div>` : ''}
+        </div>
+      </div>`;
+  }
+
+  function settingsView() {
+    const p = Store.current();
+    const st = Store.stats();
+    return `
+      <div class="page-head"><div><h1>Profile</h1><p class="muted">${plural(p.notes.length, 'note')} · ${plural(st.cards, 'card')} · ${st.total} questions answered${st.accuracy != null ? ' · ' + st.accuracy + '% correct' : ''}</p></div></div>
+      <div class="grid two">
+        <form class="card stack" data-form="settings">
+          <h2>Settings</h2>
+          <label>Name<input name="name" value="${esc(p.name)}" maxlength="40" required></label>
+          <label>Default practice length<select name="quizLength">${[5, 10, 15, 20].map((n) => `<option ${n === p.settings.quizLength ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
+          <label>Max cards per daily review<select name="dailyLimit">${[10, 15, 25, 40, 60, 100].map((n) => `<option ${n === p.settings.dailyLimit ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
+          <button class="btn primary" type="submit">Save</button>
+        </form>
+        <div class="card stack">
+          <h2>Backup & devices</h2>
+          <p class="small">Your notes are stored in this browser. Download a backup to keep them safe or to move them to another computer or phone.</p>
+          <div class="row"><button class="btn" data-action="export">⬇️ Download backup</button><label class="btn">⬆️ Import backup<input type="file" accept=".json,application/json" data-change="import-backup" hidden></label></div>
+          <h2>Profiles</h2>
+          <div class="row"><a class="btn" href="#/welcome">Switch / add profile</a><button class="btn danger" data-action="delete-profile">Delete this profile</button></div>
+        </div>
+      </div>`;
+  }
+
+  function notFound() { return '<div class="card empty"><p>That page doesn\'t exist.</p><a class="btn" href="#/dashboard">Go home</a></div>'; }
+
+  /* ---------- quiz ---------- */
+  function startQuiz(title, questions, opts) {
+    opts = opts || {};
+    questions = (questions || []).filter(Boolean);
+    if (!questions.length) { toast('No questions available yet. Add some notes or pick a category first.'); return; }
+    session = { title, questions, i: 0, results: [], answered: false, correct: false, response: null, requeue: !!opts.requeue, requeued: new Map(), back: opts.back || '#/dashboard', record: opts.record !== false, startedAt: Date.now() };
+    go('#/quiz');
+  }
+
+  function quizView() {
+    if (!session) return '<div class="card empty"><p>No quiz in progress.</p><a class="btn primary" href="#/dashboard">Go home</a></div>';
+    if (session.i >= session.questions.length) return quizSummary();
+    const q = session.questions[session.i];
+    const total = session.questions.length;
+    const right = session.results.filter((r) => r.correct).length;
+    let body = '';
+    if (q.kind === 'mc') {
+      body = `<div class="choices">${q.choices.map((c, i) => {
+        let cls = '';
+        if (session.answered) cls = i === q.correct ? 'correct' : i === Number(session.response) ? 'wrong' : 'dim';
+        return `<button class="choice ${cls}" data-action="answer-mc" data-i="${i}" ${session.answered ? 'disabled' : ''}><span class="key">${'ABCD'[i] || i + 1}</span><span>${fmt(c)}</span></button>`;
+      }).join('')}</div>`;
+    } else if (q.kind === 'input') {
+      body = `<form data-form="answer-input" class="answer-form">
+        <input name="answer" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="${q.check === 'numeric' ? 'Type a number, fraction (3/4), or pi expression' : 'Type your answer'}" ${session.answered ? `disabled value="${esc(session.response || '')}"` : 'autofocus'} aria-label="Your answer">
+        ${session.answered ? '' : '<button class="btn primary" type="submit">Check</button><button class="btn ghost" type="button" data-action="dont-know">I don\'t know</button>'}
+      </form>`;
+    } else {
+      body = session.answered || session.revealed
+        ? `<div class="flash-answer"><div class="muted small">Answer</div><div>${fmt(q.answerDisplay)}</div>${q.explain ? `<div class="explain">${fmt(q.explain)}</div>` : ''}</div>
+           ${session.answered ? '' : '<p class="small muted">Be honest. This decides when you see it again.</p><div class="row"><button class="btn good" data-action="flash-grade" data-ok="1">✓ I knew it</button><button class="btn bad" data-action="flash-grade" data-ok="0">✗ I missed it</button></div>'}`
+        : '<p class="small muted">Think of your answer (or work it out on paper), then reveal it.</p><button class="btn primary" data-action="reveal">Show answer</button>';
+    }
+    let feedback = '';
+    if (session.answered) {
+      feedback = `<div class="feedback ${session.correct ? 'good' : 'bad'}">
+        <b>${session.correct ? pick(['Correct! 🎉', 'Nice work! ✅', 'You got it! 💪', 'Exactly right! ⭐']) : 'Not quite.'}</b>
+        ${!session.correct && q.kind !== 'flash' ? `<div>Answer: <span class="answer">${fmt(q.kind === 'mc' ? q.choices[q.correct] : q.answerDisplay)}</span></div>` : ''}
+        ${q.explain && q.kind !== 'flash' ? `<div class="explain">${fmt(q.explain)}</div>` : ''}
+        <div class="row">${!session.correct && q.kind === 'input' ? '<button class="btn small ghost" data-action="override">I was actually right</button>' : ''}<button class="btn primary" data-action="next" id="nextBtn">${session.i + 1 >= session.questions.length ? 'See results' : 'Next →'}</button></div>
+      </div>`;
+    }
+    return `
+      <div class="quiz">
+        <div class="quiz-head"><div><b>${esc(session.title)}</b><div class="muted small">Question ${session.i + 1} of ${total} · ${right} correct${session.requeue ? ' · 🔥 cram mode' : ''}</div></div><button class="btn small ghost" data-action="end-quiz">End quiz</button></div>
+        <div class="progress"><div style="width:${(100 * session.i) / total}%"></div></div>
+        <div class="card question">
+          ${q.topic ? `<span class="chip">${esc(q.topic)}</span>` : ''}
+          <div class="prompt">${fmt(q.prompt)}</div>
+          ${body}
+          ${feedback}
+        </div>
+        <p class="muted small center">Tip: press Enter to go to the next question${q.kind === 'mc' && !session.answered ? ', or 1–4 to choose an answer' : ''}.</p>
+      </div>`;
+  }
+  const pick = U.pick;
+
+  function answer(correct, response) {
+    session.answered = true; session.correct = correct; session.response = response;
+    route();
+  }
+  function commitAnswer() {
+    const q = session.questions[session.i];
+    const correct = session.correct;
+    session.results.push({ q, correct });
+    if (session.record) {
+      if (q.cardId) Store.recordCard(q.cardId, correct);
+      if (q.categoryId && !q.cardId) Store.recordCategory(q.categoryId, correct);
+      Store.recordActivity(correct);
+    }
+    if (!correct && session.requeue) {
+      const n = session.requeued.get(q) || 0;
+      if (n < 3) {
+        session.requeued.set(q, n + 1);
+        let again = q;
+        const card = q.cardId && Store.card(q.cardId);
+        if (card) { again = Quiz.cardQuestion(card, Store.current().cards); session.requeued.set(again, n + 1); }
+        session.questions.push(again);
+      }
+    }
+  }
+  function next() {
+    commitAnswer();
+    session.i += 1; session.answered = false; session.revealed = false; session.response = null;
+    if (session.i >= session.questions.length) {
+      const right = session.results.filter((r) => r.correct).length;
+      if (session.record) Store.logSession(session.title, right, session.results.length);
+    }
+    route();
+    window.scrollTo(0, 0);
+  }
+
+  function quizSummary() {
+    const rs = session.results;
+    const right = rs.filter((r) => r.correct).length;
+    const p = pct(right, rs.length) || 0;
+    const missed = rs.filter((r) => !r.correct);
+    const uniqueMissed = Array.from(new Set(missed.map((r) => r.q)));
+    const msg = p === 100 ? 'Perfect score! You\'re ready. 🏆' : p >= 85 ? 'Great job, almost there! 🌟' : p >= 70 ? 'Solid work. Review the misses below. 👍' : p >= 50 ? 'Getting there. Go over the misses and try again. 💪' : 'Keep practicing. Every miss now is one you won\'t miss on the test. 📚';
+    return `
+      <div class="quiz">
+        <div class="card summary">
+          <h1>${esc(session.title)}: done!</h1>
+          <div class="big-score ${p >= 80 ? 'good' : p >= 60 ? 'ok' : 'bad'}">${p}%</div>
+          <p>${right} of ${rs.length} correct${session.requeue && missed.length ? ` (missed questions were repeated until you got them right)` : ''}</p>
+          <p class="lead">${msg}</p>
+          <div class="row center">${uniqueMissed.length ? '<button class="btn primary" data-action="retry-missed">Retry missed questions</button>' : ''}<a class="btn" href="${session.back}">Done</a></div>
+        </div>
+        ${uniqueMissed.length ? `<div class="card"><h2>Review what you missed</h2><div class="card-list">${uniqueMissed.map((q) => `<div class="card-row"><div class="cr-main"><div class="cr-front">${fmt(q.prompt)}</div><div class="cr-back">✔ ${fmt(q.kind === 'mc' ? q.choices[q.correct] : q.answerDisplay)}</div>${q.explain ? `<div class="muted small">${fmt(q.explain)}</div>` : ''}</div></div>`).join('')}</div></div>` : ''}
+      </div>`;
+  }
+
+  /* ---------- router ---------- */
+  const views = {
+    welcome, dashboard, notes: notesList, 'notes/new': () => noteEditor(null), note: noteView, 'note-edit': noteEditor,
+    exams: examsView, categories: categoriesView, category: categoryView, settings: settingsView, quiz: quizView
+  };
+  function route() {
+    const hash = location.hash.replace(/^#\/?/, '');
+    const parts = hash.split('/');
+    let name = parts[0] || 'dashboard';
+    let arg = parts[1];
+    if (name === 'notes' && arg === 'new') { name = 'notes/new'; arg = null; }
+    if (!Store.current() && name !== 'welcome') name = 'welcome';
+    const view = views[name] || notFound;
+    $app.innerHTML = view(arg);
+    document.querySelectorAll('[data-nav]').forEach((a) => a.classList.toggle('active', a.dataset.nav === name || (name.startsWith('note') && a.dataset.nav === 'notes') || (name === 'category' && a.dataset.nav === 'categories')));
+    const p = Store.current();
+    document.getElementById('nav').style.visibility = p ? 'visible' : 'hidden';
+    const chip = document.getElementById('profileChip');
+    chip.innerHTML = p ? `<span class="avatar">${esc(p.name[0] || '?').toUpperCase()}</span><span class="chip-name">${esc(p.name)}</span>` : '';
+    chip.style.display = p ? '' : 'none';
+    document.title = (name === 'welcome' ? '' : (name.charAt(0).toUpperCase() + name.slice(1)).replace(/[-/].*/, '') + ' · ') + 'Math Study Guide';
+    renderMath($app);
+    const ta = $app.querySelector('textarea[data-input="preview-notes"]');
+    if (ta && ta.value) previewNotes(ta);
+    const af = $app.querySelector('[autofocus]');
+    if (af) af.focus();
+    const nb = document.getElementById('nextBtn');
+    if (nb) nb.focus();
+  }
+
+  /* ---------- actions ---------- */
+  const actions = {
+    'pick-profile': (el) => { Store.setCurrent(el.dataset.id); go('#/dashboard'); },
+    'start-review': () => startQuiz('Daily review', Quiz.dailyReview(Store.current().settings.dailyLimit)),
+    'start-weak': () => startQuiz('Weakest cards', Quiz.weakest(Store.current().settings.quizLength)),
+    'start-topic': (el) => startQuiz(el.dataset.topic, Quiz.weakest(15, Store.current().cards.filter((c) => (c.topic || 'General') === el.dataset.topic))),
+    'quiz-note': (el) => { const n = Store.note(el.dataset.id); startQuiz(n.title, Quiz.forNote(n.id).concat(n.categoryId ? Quiz.forCategory(n.categoryId, 3, 2).filter((q) => !q.conceptId) : []), { back: '#/note/' + n.id }); },
+    'exam-quiz': (el) => {
+      const e = Store.exam(el.dataset.id); const mode = el.dataset.mode;
+      startQuiz(e.title + (mode === 'cram' ? ': cram' : mode === 'full' ? ': practice test' : ': quick quiz'), Quiz.forExam(e, mode), { requeue: mode === 'cram', back: '#/exams' });
+    },
+    'delete-exam': (el) => { if (confirm('Delete this test?')) { Store.deleteExam(el.dataset.id); route(); } },
+    'delete-note': (el) => { if (confirm('Delete these notes and all their study cards?')) { Store.deleteNote(el.dataset.id); go('#/notes'); toast('Notes deleted'); } },
+    'note-tab': (el) => { sessionStorageSet('noteTab', el.dataset.tab); route(); },
+    'delete-card': (el) => { Store.deleteCard(el.dataset.id); route(); },
+    'edit-card': (el) => {
+      const c = Store.card(el.dataset.id);
+      const row = el.closest('.card-row');
+      row.innerHTML = `<form class="cr-main stack" data-form="edit-card" data-id="${c.id}"><label>Front<textarea name="front" rows="2" required>${esc(c.front)}</textarea></label><label>Back<textarea name="back" rows="2" required>${esc(c.back)}</textarea></label><div class="row tight"><button class="btn small primary" type="submit">Save</button><button class="btn small" type="button" data-action="cancel-edit">Cancel</button></div></form>`;
+      row.querySelector('textarea').focus();
+    },
+    'cancel-edit': () => route(),
+    'copy-prompt': () => { const t = document.getElementById('aiPrompt').textContent; (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => toast('Prompt copied! Paste it into your AI chat.'), () => toast('Select the prompt text and copy it.')); },
+    'add-lib': (el) => { const c = Library.get(el.dataset.id); Store.addLibraryCards(c.id, c.concepts); toast(`Added ${c.concepts.length} cards to your review deck`); route(); },
+    'remove-lib': (el) => { Store.removeLibraryCards(el.dataset.id); toast('Removed from your deck'); route(); },
+    export: () => {
+      const blob = new Blob([Store.exportProfile()], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'math-study-guide-' + Store.current().name.replace(/\W+/g, '-').toLowerCase() + '-' + U.dateKey() + '.json';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    },
+    'delete-profile': () => { const p = Store.current(); if (confirm(`Delete the profile "${p.name}" and all its notes? This can't be undone.`)) { Store.deleteProfile(p.id); go('#/welcome'); } },
+    'answer-mc': (el) => { if (session.answered) return; const i = Number(el.dataset.i); answer(Quiz.check(session.questions[session.i], i), i); },
+    'dont-know': () => answer(false, ''),
+    reveal: () => { session.revealed = true; route(); },
+    'flash-grade': (el) => answer(el.dataset.ok === '1', el.dataset.ok),
+    override: () => { session.correct = true; route(); },
+    next: () => next(),
+    'end-quiz': () => {
+      if (session.answered) commitAnswer();
+      if (!session.results.length) { const back = session.back; session = null; go(back); return; }
+      session.questions = session.questions.slice(0, session.results.length);
+      session.i = session.questions.length; session.answered = false;
+      if (session.record) Store.logSession(session.title, session.results.filter((r) => r.correct).length, session.results.length);
+      route();
+    },
+    'retry-missed': () => {
+      const missed = Array.from(new Set(session.results.filter((r) => !r.correct).map((r) => r.q)));
+      const qs = missed.map((q) => { const card = q.cardId && Store.card(q.cardId); return card ? Quiz.cardQuestion(card, Store.current().cards) : q; });
+      startQuiz(session.title.replace(/ \(retry\)$/, '') + ' (retry)', U.shuffle(qs), { requeue: session.requeue, back: session.back });
+    }
+  };
+
+  const forms = {
+    'create-profile': (f) => { Store.createProfile(f.name.value); toast('Welcome, ' + Store.current().name + '!'); go('#/dashboard'); },
+    'save-note': (f) => {
+      const fields = { title: f.title.value.trim(), course: f.course.value.trim(), categoryId: f.categoryId.value, content: f.content.value };
+      const cards = parseNotes(fields.content, { title: fields.title });
+      let note;
+      if (f.dataset.id) { note = Store.updateNote(f.dataset.id, fields, cards); toast('Notes updated'); }
+      else { note = Store.addNote(fields, cards); toast(cards.length ? `Saved! Built ${plural(cards.length, 'study card')}.` : 'Saved. Add cards below.'); }
+      sessionStorageSet('noteTab', 'cards');
+      go('#/note/' + note.id);
+    },
+    'add-card': (f) => { Store.addManualCard(f.dataset.id, f.front.value.trim(), f.back.value.trim(), Store.note(f.dataset.id).title); toast('Card added'); route(); },
+    'edit-card': (f) => { Store.updateCard(f.dataset.id, f.front.value.trim(), f.back.value.trim()); route(); },
+    'add-exam': (f) => {
+      const noteIds = Array.from(f.querySelectorAll('input[name=noteIds]:checked')).map((x) => x.value);
+      const categoryIds = Array.from(f.querySelectorAll('input[name=categoryIds]:checked')).map((x) => x.value);
+      if (!noteIds.length && !categoryIds.length) { toast('Pick at least one set of notes or a math topic.'); return; }
+      Store.addExam({ title: f.title.value.trim(), date: f.date.value, noteIds, categoryIds });
+      toast('Test added. Good luck! 🍀'); route();
+    },
+    practice: (f) => {
+      const d = Number((f.querySelector('input[name=d]:checked') || { value: 2 }).value);
+      sessionStorageSet('difficulty', d);
+      const c = Library.get(f.dataset.id);
+      startQuiz(c.name + ' practice', Quiz.forCategory(c.id, Number(f.n.value), d), { back: '#/category/' + c.id });
+    },
+    settings: (f) => { Store.renameProfile(f.name.value); Store.updateSettings({ quizLength: Number(f.quizLength.value), dailyLimit: Number(f.dailyLimit.value) }); toast('Saved'); route(); },
+    'answer-input': (f) => { const v = f.answer.value; if (!v.trim()) { f.answer.focus(); return; } answer(Quiz.check(session.questions[session.i], v), v); }
+  };
+
+  document.addEventListener('click', (e) => {
+    const el = e.target.closest('[data-action]');
+    if (!el || el.disabled) return;
+    const fn = actions[el.dataset.action];
+    if (fn) { e.preventDefault(); fn(el, e); }
+  });
+  document.addEventListener('submit', (e) => {
+    const f = e.target.closest('[data-form]');
+    if (!f) return;
+    e.preventDefault();
+    const fn = forms[f.dataset.form];
+    if (fn) fn(f);
+  });
+  let previewTimer = null;
+  document.addEventListener('input', (e) => {
+    const t = e.target;
+    if (t.dataset.input === 'preview-notes') { clearTimeout(previewTimer); previewTimer = setTimeout(() => previewNotes(t), 250); }
+    if (t.dataset.input === 'filter-cats') {
+      sessionStorageSet('catFilter', t.value);
+      const pos = t.selectionStart;
+      route();
+      const s = $app.querySelector('.search');
+      if (s) { s.focus(); s.setSelectionRange(pos, pos); }
+    }
+  });
+  document.addEventListener('change', (e) => {
+    const t = e.target;
+    if (!t.dataset.change || !t.files || !t.files[0]) return;
+    const file = t.files[0];
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (t.dataset.change === 'load-file') {
+        const form = t.closest('form');
+        form.content.value = (form.content.value ? form.content.value + '\n\n' : '') + reader.result;
+        if (!form.title.value) form.title.value = file.name.replace(/\.[^.]+$/, '');
+        previewNotes(form.content);
+      } else if (t.dataset.change === 'import-backup') {
+        try { const p = Store.importProfile(reader.result); toast('Imported profile ' + p.name); go('#/dashboard'); }
+        catch (err) { alert(err.message || 'Could not import that file.'); }
+      }
+    };
+    reader.readAsText(file);
+    t.value = '';
+  });
+  document.addEventListener('keydown', (e) => {
+    if (!session || !location.hash.startsWith('#/quiz')) return;
+    if (e.target.tagName === 'TEXTAREA') return;
+    const q = session.questions[session.i];
+    if (!q) return;
+    if (session.answered && e.key === 'Enter' && e.target.tagName !== 'BUTTON') { e.preventDefault(); next(); return; }
+    if (!session.answered && q.kind === 'mc' && /^[1-4]$/.test(e.key) && e.target.tagName !== 'INPUT') {
+      const i = Number(e.key) - 1;
+      if (i < q.choices.length) answer(Quiz.check(q, i), i);
+    }
+  });
+  window.addEventListener('hashchange', route);
+  window.addEventListener('storage', () => { Store.reload(); route(); });
+  route();
+})();
