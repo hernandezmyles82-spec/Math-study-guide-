@@ -47,4 +47,5 @@ js/quiz.js          builds quizzes from cards / categories / exams
 js/app.js           UI views and routing
 vendor/katex/       KaTeX math rendering (MIT license)
 tests/              Node tests + sample notes
+DEVELOPMENT.md      how the code works + pitfalls to avoid when changing it
 ```
