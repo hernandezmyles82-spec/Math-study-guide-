@@ -122,7 +122,7 @@
     (d) => {
       let p = ri(1, 9), q = ri(2, 12); const g = gcd(p, q); p /= g; q /= g; if (q === 1) q = 7;
       const k = ri(2, R(d, 5, 9, 15));
-      const wrong = [frac(p * k, q), `\\frac{${p + 1}}{${q}}`, `\\frac{${p}}{${q * 2}}`, `\\frac{${q}}{${p}}`, `\\frac{${p * 2}}{${q * 3}}`];
+      const wrong = [frac(p * k, q), frac(p + 1, q), frac(p, q * 2), frac(q, p), frac(p * 2, q * 3)];
       return mc('Simplify ' + m(`\\frac{${p * k}}{${q * k}}`), m(frac(p, q)), wrong.map(m), 'Divide top and bottom by their GCF, ' + k * gcd(p, q) + '.');
     },
     (d) => { const w = ri(1, 3 + d), b = ri(2, 9), a = ri(1, b - 1); return mc('Write ' + m(`${w}\\tfrac{${a}}{${b}}`) + ' as an improper fraction.', m(`\\frac{${w * b + a}}{${b}}`), [m(`\\frac{${w + a}}{${b}}`), m(`\\frac{${w * a + b}}{${b}}`), m(`\\frac{${w * b}}{${b}}`), m(`\\frac{${w * b + a}}{${a}}`)], 'Whole × denominator + numerator, over the denominator.'); }
@@ -337,7 +337,7 @@
 
   G.integrals = [
     (d) => { const cs = R(d, [nz(-3, 3), ri(-5, 5)], [nz(-3, 3) * 3, ri(-4, 4) * 2, ri(-5, 5)], [nz(-4, 4) * 4, nz(-3, 3) * 3, ri(-4, 4) * 2, ri(-5, 5)]); const a = ri(-2, 1), b = a + ri(1, 3); const deg = cs.length - 1; const F = (x) => cs.reduce((s, c, i) => s + c * Math.pow(x, deg - i + 1) / (deg - i + 1), 0); const v = F(b) - F(a); return num('Evaluate ' + m(`\\int_{${a}}^{${b}} \\left(${poly(cs)}\\right)\\,dx`) + ' (fraction ok)', v, 'Antiderivative, then F(b) − F(a).', { display: fmtNum(v) }); },
-    (d) => { const a = ri(1, 9), n = ri(1, 6); return mc('Find ' + m(`\\int ${a}x^{${n}}\\,dx`), m(`${frac(a, n + 1)}x^{${n + 1}} + C`), [m(`${a * n}x^{${n - 1}} + C`), m(`${a}x^{${n + 1}} + C`), m(`${frac(a, n)}x^{${n}} + C`)], 'Power rule for integrals: raise the exponent by 1, divide by the new exponent.'); },
+    (d) => { const a = ri(1, 9), n = ri(1, 6); const co = frac(a, n + 1) === '1' ? '' : frac(a, n + 1); return mc('Find ' + m(`\\int ${a}x^{${n}}\\,dx`), m(`${co}x^{${n + 1}} + C`), [m(`${a * n}x^{${n - 1}} + C`), m(`${a}x^{${n + 1}} + C`), m(`${frac(a, n)}x^{${n}} + C`)], 'Power rule for integrals: raise the exponent by 1, divide by the new exponent.'); },
     (d) => {
       const k = ri(2, 6);
       const items = [
@@ -362,7 +362,7 @@
   ];
 
   G.multivariable = [
-    (d) => { const a = nz(-5, 5), p = ri(1, 3), q = ri(1, 3), x = ri(-2, 2), y = ri(-2, 2); const v = a * p * Math.pow(x, p - 1) * Math.pow(y, q); return num(`If ${m(`f(x,y) = ${a === 1 ? '' : a === -1 ? '-' : a}x^{${p}}y^{${q}}`)}, find ${m('f_x')} at (${x}, ${y}).`, v, m(`f_x = ${a * p}x^{${p - 1}}y^{${q}}`)); },
+    (d) => { const a = nz(-5, 5), p = ri(1, 3), q = ri(1, 3), x = ri(-2, 2), y = ri(-2, 2); const v = a * p * Math.pow(x, p - 1) * Math.pow(y, q); const pw = (v, e) => (e === 0 ? '' : e === 1 ? v : v + '^{' + e + '}'); return num(`If ${m(`f(x,y) = ${a === 1 ? '' : a === -1 ? '-' : a}${pw('x', p)}${pw('y', q)}`)}, find ${m('f_x')} at (${x}, ${y}).`, v, m(`f_x = ${a * p}${pw('x', p - 1)}${pw('y', q)}`)); },
     (d) => { const a = nz(-5, 5), b = nz(-5, 5), x = ri(-3, 3), y = ri(-3, 3); return num(`If ${m(`f(x,y) = ${poly([a, 0, 0])} ${sgn(b)}xy`)}, find ${m('\\frac{\\partial f}{\\partial y}')} at (${x}, ${y}).`, b * x, 'Treat x as a constant.'); },
     (d) => { const u = [ri(-5, 5), ri(-5, 5), ri(-5, 5)], v = [ri(-5, 5), ri(-5, 5), ri(-5, 5)]; return num(`Compute the dot product ${m(`\\langle ${u} \\rangle \\cdot \\langle ${v} \\rangle`)}.`, u[0] * v[0] + u[1] * v[1] + u[2] * v[2], 'Multiply matching components and add.'); },
     (d) => { const u = [ri(-4, 4), ri(-4, 4), ri(-4, 4)], v = [ri(-4, 4), ri(-4, 4), ri(-4, 4)]; return num(`Find the z-component of ${m(`\\langle ${u} \\rangle \\times \\langle ${v} \\rangle`)}.`, u[0] * v[1] - u[1] * v[0], m('u_1v_2 - u_2v_1')); },
@@ -383,7 +383,7 @@
 
   G['differential-equations'] = [
     (d) => { const k = nz(-5, 5), C = ri(1, 9); return mc('Solve ' + m(`y' = ${k}y`) + ' with ' + m(`y(0) = ${C}`), m(`y = ${C}e^{${k}t}`), [m(`y = e^{${k}t} + ${C}`), m(`y = ${C}e^{${-k}t}`), m(`y = ${k}${C}e^{t}`)], m("y' = ky \\Rightarrow y = Ce^{kt}")); },
-    (d) => { const r1 = ri(-5, 5); let r2 = ri(-5, 5); if (r2 === r1) r2 = r1 + 1; const b = -(r1 + r2), c = r1 * r2; const e = (r) => (r === 0 ? '' : `e^{${r === 1 ? '' : r === -1 ? '-' : r}t}`); const sol = (p, q) => `y = C_1${e(p) || ''} + C_2${e(q) || ''}`; return mc('General solution of ' + m(`y'' ${sgn(b)}y' ${sgn(c)}y = 0`.replace(/\+ 0y'?/g, '').replace(/- 0y'?/g, '')), m(sol(r1, r2)), [m(sol(-r1, -r2)), m(sol(r1, -r2)), m(`y = (C_1 + C_2t)e^{${r1}t}`)], `Characteristic equation ${m(`r^2 ${sgn(b)}r ${sgn(c)} = 0`)} has roots ${r1} and ${r2}.`); },
+    (d) => { const r1 = ri(-5, 5); let r2 = ri(-5, 5); while (Math.abs(r2) === Math.abs(r1)) r2 = ri(-5, 5); const b = -(r1 + r2), c = r1 * r2; const e = (r) => (r === 0 ? '' : `e^{${r === 1 ? '' : r === -1 ? '-' : r}t}`); const sol = (p, q) => `y = C_1${e(p) || ''} + C_2${e(q) || ''}`; const lhs = "y''" + (b ? (b < 0 ? ' - ' : ' + ') + (Math.abs(b) === 1 ? '' : Math.abs(b)) + "y'" : '') + (c ? (c < 0 ? ' - ' : ' + ') + (Math.abs(c) === 1 ? '' : Math.abs(c)) + 'y' : ''); return mc('General solution of ' + m(lhs + ' = 0'), m(sol(r1, r2)), [m(sol(-r1, -r2)), m(sol(r1, -r2)), m(`y = (C_1 + C_2t)e^{${r1}t}`)], `Characteristic equation ${m('r^2 ' + poly([b, c], 'r').replace(/^(?!-)/, '+ ').replace(/^-/, '- ').replace(/^\+ 0$/, '') + ' = 0')} has roots ${r1} and ${r2}.`); },
     (d) => { const n = ri(1, 4); const ys = ['y', "y'", "y''", "y'''", 'y^{(4)}']; return num('What is the order of ' + m(`${ys[n]} + ${ri(2, 5)}${ys[Math.max(0, n - 1)]} - ${ri(1, 9)}y = \\sin t`) + '?', n, 'The order is the highest derivative.'); },
     (d) => { const x0 = 0, y0 = ri(1, 5), h = pick([0.1, 0.5, 1]), a = nz(-3, 3); const v = Math.round((y0 + h * (a * x0 + y0)) * 1000) / 1000; return num(`Use one step of Euler's method with ${m('h = ' + h)} for ${m(`y' = ${a}x + y`)}, ${m(`y(0) = ${y0}`)}. Estimate ${m(`y(${h})`)}.`, v, m(`y_1 = y_0 + h\\,f(x_0,y_0) = ${y0} + ${h}(${y0})`)); },
     (d) => { const a = ri(1, 3); return mc('Solve the separable equation ' + m(`\\frac{dy}{dx} = ${a === 1 ? '' : a}xy`), m(`y = Ce^{${frac(a, 2)}x^2}`), [m(`y = Ce^{${a}x}`), m(`y = ${frac(a, 2)}x^2 + C`), m(`y = Ce^{${a}x^2}`)], m(`\\int\\frac{dy}{y} = \\int ${a}x\\,dx`)); }
@@ -441,7 +441,7 @@
   G['complex-analysis'] = [
     (d) => { const [p, q, r] = pick(TRIPLES.slice(0, 3)); return num('Find ' + m(`|${cx(pick([1, -1]) * p, pick([1, -1]) * q)}|`), r, m('|a+bi| = \\sqrt{a^2+b^2}')); },
     (d) => { const c = nz(-9, 9), a = ri(-5, 5); return num('Find the residue of ' + m(`f(z) = \\frac{${c}}{z ${sgn(-a)}}`) + ` at ${m('z = ' + a)}.`, c, m('\\lim_{z\\to a}(z-a)f(z)')); },
-    (d) => { const a = ri(0, 5), R = ri(1, 6); const inside = a < R; return mc('Evaluate ' + m(`\\oint_{|z| = ${R}} \\frac{dz}{z - ${a}}`), m(inside ? '2\\pi i' : '0'), [m('2\\pi i'), m('0'), m('\\pi i'), m('1')], inside ? 'The pole is inside the contour (Cauchy integral formula).' : 'The pole is outside the contour, so the integrand is analytic inside (Cauchy).'); },
+    (d) => { const a = ri(0, 5); let R = ri(1, 6); if (R === a) R = a + 1; const inside = a < R; return mc('Evaluate ' + m(`\\oint_{|z| = ${R}} \\frac{dz}{z - ${a}}`), m(inside ? '2\\pi i' : '0'), [m('2\\pi i'), m('0'), m('\\pi i'), m('1')], inside ? 'The pole is inside the contour (Cauchy integral formula).' : 'The pole is outside the contour, so the integrand is analytic inside (Cauchy).'); },
     (d) => { const th = pick([['\\pi', '-1'], ['\\frac{\\pi}{2}', 'i'], ['2\\pi', '1'], ['\\frac{3\\pi}{2}', '-i']]); return mc('Evaluate ' + m(`e^{i${th[0]}}`), m(th[1]), ['1', '-1', 'i', '-i'].map(m), "Euler's formula: " + m('e^{i\\theta} = \\cos\\theta + i\\sin\\theta')); },
     (d) => { const deg = pick([0, 45, 90, 135, 180, -45, -90]); const map = { 0: [1, 0], 45: [1, 1], 90: [0, 1], 135: [-1, 1], 180: [-1, 0], '-45': [1, -1], '-90': [0, -1] }; const [a, b] = map[deg]; const k = ri(1, 4); return num('What is the argument (in degrees, between −180 and 180) of ' + m(cx(a * k, b * k)) + '?', deg, 'Find the angle of the point (a, b) from the positive real axis.'); }
   ];

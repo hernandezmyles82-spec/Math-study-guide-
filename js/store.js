@@ -205,12 +205,50 @@
     /* ---------- backup ---------- */
     exportProfile() { return JSON.stringify({ app: 'math-study-guide', version: 1, profile: S.current() }, null, 2); },
     importProfile(text) {
-      const data = JSON.parse(text);
-      const p = data && data.profile;
-      if (!p || !Array.isArray(p.notes) || !Array.isArray(p.cards)) throw new Error('This file is not a Math Study Guide backup.');
-      p.id = U.uid();
-      p.exams = p.exams || []; p.activity = p.activity || {}; p.catStats = p.catStats || {}; p.sessions = p.sessions || [];
-      p.settings = Object.assign({ quizLength: 10, dailyLimit: 25 }, p.settings || {});
+      let data;
+      try { data = JSON.parse(text); } catch (e) { throw new Error('This file is not a Math Study Guide backup.'); }
+      const src = data && data.profile;
+      if (!src || !Array.isArray(src.notes) || !Array.isArray(src.cards)) throw new Error('This file is not a Math Study Guide backup.');
+      // Rebuild every field with the right type. Ids, dates and numbers are placed into the page
+      // without escaping, so a hand-edited or corrupted file must not be able to inject markup.
+      const str = (v, max) => String(v == null ? '' : v).slice(0, max || 100000);
+      const n = (v, d) => (Number.isFinite(Number(v)) ? Number(v) : d);
+      const safeId = (v) => (/^[\w:.-]{1,80}$/.test(String(v)) ? String(v) : U.uid());
+      const noteIds = new Map();
+      const notes = src.notes.map((x) => {
+        const id = safeId(x.id); noteIds.set(x.id, id);
+        return { id, title: str(x.title, 200) || 'Untitled notes', course: str(x.course, 100), categoryId: safeId(x.categoryId || 'none').replace(/^none$/, ''), content: str(x.content), createdAt: n(x.createdAt, Date.now()), updatedAt: n(x.updatedAt, Date.now()) };
+      });
+      const seen = new Set();
+      const cards = src.cards.filter((c) => c && c.front != null && c.back != null).map((c) => {
+        let id = safeId(c.id); if (seen.has(id)) id = U.uid(); seen.add(id);
+        const s = c.srs || {}, st = c.stats || {};
+        return {
+          id, type: ['qa', 'def', 'cloze', 'problem'].includes(c.type) ? c.type : 'qa', front: str(c.front, 5000), back: str(c.back, 5000),
+          term: c.term == null ? null : str(c.term, 200), work: c.work == null ? undefined : str(c.work, 5000), topic: str(c.topic, 200),
+          source: ['note', 'manual', 'library'].includes(c.source) ? c.source : 'manual',
+          noteId: c.noteId == null ? null : (noteIds.get(c.noteId) || null), categoryId: c.categoryId ? safeId(c.categoryId) : null,
+          srs: { due: n(s.due, Date.now()), interval: n(s.interval, 0), ease: Math.min(3, Math.max(1.3, n(s.ease, 2.5))), reps: n(s.reps, 0), lapses: n(s.lapses, 0), seen: !!s.seen, last: n(s.last, 0) },
+          stats: { right: n(st.right, 0), wrong: n(st.wrong, 0) }, createdAt: n(c.createdAt, Date.now())
+        };
+      });
+      const dateRe = /^\d{4}-\d{2}-\d{2}$/;
+      const exams = (Array.isArray(src.exams) ? src.exams : []).filter((e) => e && dateRe.test(e.date)).map((e) => ({
+        id: safeId(e.id), title: str(e.title, 200) || 'Upcoming test', date: e.date,
+        noteIds: (Array.isArray(e.noteIds) ? e.noteIds : []).map((x) => noteIds.get(x)).filter(Boolean),
+        categoryIds: (Array.isArray(e.categoryIds) ? e.categoryIds : []).map(String).filter((x) => /^[\w-]+$/.test(x)), createdAt: n(e.createdAt, Date.now())
+      }));
+      const activity = {};
+      Object.entries(src.activity || {}).forEach(([k, a]) => { if (dateRe.test(k) && a) activity[k] = { right: n(a.right, 0), total: n(a.total, 0) }; });
+      const catStats = {};
+      Object.entries(src.catStats || {}).forEach(([k, a]) => { if (/^[\w-]+$/.test(k) && a) catStats[k] = { right: n(a.right, 0), wrong: n(a.wrong, 0), last: n(a.last, 0) }; });
+      const sessions = (Array.isArray(src.sessions) ? src.sessions : []).slice(0, 50).map((x) => ({ title: str(x && x.title, 200), right: n(x && x.right, 0), total: n(x && x.total, 0), at: n(x && x.at, 0) }));
+      const set = src.settings || {};
+      const p = {
+        id: U.uid(), name: str(src.name, 40).trim() || 'Student', createdAt: n(src.createdAt, Date.now()),
+        notes, cards, exams, activity, catStats, sessions,
+        settings: { quizLength: Math.min(50, Math.max(1, n(set.quizLength, 10))), dailyLimit: Math.min(500, Math.max(1, n(set.dailyLimit, 25))) }
+      };
       db.profiles[p.id] = p; db.currentId = p.id; save();
       return p;
     },

@@ -180,7 +180,7 @@
       if (q.check === 'numeric') return U.checkNumeric(response, q.answer, q.tol);
       return U.checkText(response, q.answer);
     }
-    return !!response; // flash: self-graded
+    return response === true || response === '1'; // flash: self-graded
   }
 
   root.MSG.Quiz = { cardQuestion, fromCards, forCategory, forExam, forNote, dailyReview, weakest, check, conceptCards, examCards };

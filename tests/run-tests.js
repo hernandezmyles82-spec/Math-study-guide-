@@ -39,6 +39,10 @@ for (const [id, gens] of Object.entries(Generators.G)) {
         ok(q.kind === 'mc' && q.choices.length >= 2 && q.correct >= 0, where + ' bad mc');
         ok(new Set(q.choices).size === q.choices.length, where + ' dup choices ' + q.choices);
         ok(!q.choices.some((c) => /NaN|undefined\)|Infinity/.test(c)), where + ' bad choice text ' + q.choices);
+        const vals = q.choices.map((c) => U.evalExpr(c));
+        vals.forEach((v, i) => vals.forEach((w, j) => { if (i < j && isFinite(v) && isFinite(w) && Math.abs(v - w) < 1e-9) ok(false, where + ' two choices have the same value: ' + q.choices[i] + ' / ' + q.choices[j]); }));
+        const norm = q.choices.map((c) => c.replace(/\s+/g, ''));
+        ok(new Set(norm).size === norm.length, where + ' choices identical apart from spacing ' + q.choices);
       }
       ok(!/NaN|Infinity/.test(q.prompt), where + ' bad prompt');
     }
@@ -73,6 +77,30 @@ ok(cat.length === 10, 'category quiz length');
 const ex = Store.addExam({ title: 'Test', date: U.dateKey(Date.now() + 86400000), noteIds: [note.id], categoryIds: ['limits'] });
 ok(Quiz.forExam(ex, 'quick').length > 0, 'exam quick');
 ok(Quiz.forExam(ex, 'full').length >= cards.length, 'exam full');
+
+// answer checker must not accept a different math expression as a "typo"
+ok(!U.checkText('x^2-1', 'x^2+1'), 'one-character math difference is wrong');
+ok(!U.checkText('x = 2', 'x = 2 or x = -3'), 'both roots needed');
+ok(U.checkText('gradient', 'slope or gradient'), 'word alternatives');
+ok(!U.checkText('II: sine', 'Quadrant I: all positive; II: sine'), 'no semicolon alternatives');
+ok(Quiz.check({ kind: 'flash' }, '0') === false && Quiz.check({ kind: 'flash' }, '1') === true, 'flash grading');
+
+// backup round trip + hostile import
+const backup = Store.exportProfile();
+const imported = Store.importProfile(backup);
+ok(imported.cards.length === Store.current().cards.length && imported.notes.length === 1, 'backup round trip');
+ok(imported.cards.filter((c) => c.noteId).every((c) => c.noteId === imported.notes[0].id), 'card note links survive import');
+ok(imported.exams.length === 1 && imported.exams[0].noteIds[0] === imported.notes[0].id, 'exam links survive import');
+const evil = JSON.parse(backup);
+evil.profile.cards[0].id = '"><img src=x onerror=alert(1)>';
+evil.profile.sessions = [{ title: 't', right: '<b>x</b>', total: 2 }];
+evil.profile.exams[0].date = '<script>';
+const clean = Store.importProfile(JSON.stringify(evil));
+ok(/^[\w:.-]+$/.test(clean.cards[0].id), 'hostile id replaced');
+ok(clean.sessions[0].right === 0, 'hostile number replaced');
+ok(clean.exams.length === 0, 'hostile date dropped');
+let threw = false; try { Store.importProfile('not json'); } catch (e) { threw = /not a Math Study Guide backup/.test(e.message); }
+ok(threw, 'bad file gives a friendly error');
 
 console.log(`${passes} passed, ${fails} failed (${generated} generated problems checked)`);
 process.exit(fails ? 1 : 0);

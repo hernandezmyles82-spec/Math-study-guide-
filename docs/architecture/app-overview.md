@@ -55,6 +55,8 @@ or `library` (concepts added from a category, with id `lib:<category>:<index>`).
 
 > ⚠️ Library card ids are positional (`lib:<cat>:<index>`). Reordering or inserting concepts in `js/library.js` silently re-maps students' saved progress onto different concepts. Append new concepts at the end of a category.
 
+> ⚠️ `Store.importProfile` rebuilds every field of a backup by hand with the right type, because ids, dates and numbers are put into the page without escaping and a backup file can be edited by anyone. The flip side: **a field added to the data model must also be added to `importProfile`, or it is silently dropped when a student restores a backup.** The round-trip tests in `tests/run-tests.js` catch missing links (cards to notes, exams to notes) but not new fields.
+
 ## Question shapes
 
 Every quiz question is one of three kinds: `mc` (choices + correct index), `input` (typed;
@@ -65,6 +67,10 @@ weighted choice in `cardQuestion` (`js/quiz.js:66`).
 > ⚠️ Answers are recorded only when the student presses Next (`commitAnswer`, `js/app.js:472`), not when they answer. That delay is what lets "I was actually right" (`js/app.js:591`) flip a wrong answer before it reaches spaced repetition. Recording earlier would make the override a lie.
 
 > ⚠️ Distractors for category quizzes must come from the category's own concepts (and same-level categories), not from the student's notes. An early version pulled "A polygon with three sides" from personal notes into a unit-circle question, which made it trivially easy. See the scoring in `distractors` (`js/quiz.js:23`) and the pool in `forCategory` (`js/quiz.js:115`).
+
+> ⚠️ Typed answers forgive a one- or two-letter typo only when the answer is plain words (`U.checkText`, `js/util.js`). An earlier version also forgave math, so `x^2-1` was marked correct for `x^2+1`. For the same reason, "a or b" alternatives apply only to word answers: `x = 2 or x = -3` needs both roots.
+
+> ⚠️ Multiple-choice distractors must never be equal in value to the answer or to each other ("2/1" vs "2"). Build them with `frac()` rather than raw `\frac{}{}` strings so equal values collapse, and keep the test in `tests/run-tests.js` that evaluates every pair of choices.
 
 ## Rendering math
 

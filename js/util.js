@@ -146,14 +146,19 @@
 
   U.checkText = function (input, answer) {
     if (!String(input || '').trim()) return false;
-    const alts = String(answer).split(/\s+(?:or)\s+|\s*;\s*/).filter(Boolean);
-    if (alts.length > 1 && alts.some((a) => U.checkText(input, a))) return true;
+    // "slope or gradient": either word is accepted. Only for plain-word answers, so that
+    // "x = 2 or x = -3" still needs both roots.
+    if (/^[a-z\s'-]+$/i.test(String(answer).trim())) {
+      const alts = String(answer).split(/\s+or\s+/i).filter(Boolean);
+      if (alts.length > 1 && alts.some((a) => U.checkText(input, a))) return true;
+    }
     const a = U.normalize(input), b = U.normalize(answer);
     if (!b) return false;
     if (a === b) return true;
     const x = U.evalExpr(input), y = U.evalExpr(answer);
     if (isFinite(x) && isFinite(y)) return Math.abs(x - y) <= 1e-6 * Math.max(1, Math.abs(y));
-    if (/^[a-z]/.test(b) && b.length >= 5 && lev(a, b) <= (b.length >= 12 ? 2 : 1)) return true;
+    // Allow a typo only in plain words. In math ("x^2+1" vs "x^2-1") one character changes the answer.
+    if (/^[a-z'-]+$/.test(b) && b.length >= 5 && lev(a, b) <= (b.length >= 12 ? 2 : 1)) return true;
     return false;
   };
 
