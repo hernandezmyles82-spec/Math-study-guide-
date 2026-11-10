@@ -112,7 +112,7 @@
         <div class="card">
           <h2>${profiles.length ? 'Create a new profile' : 'Create your profile'}</h2>
           <form data-form="create-profile" class="stack">
-            <label>Your name<input name="name" required maxlength="40" placeholder="e.g. Myles" autocomplete="off"></label>
+            <label>Your name<input name="name" required maxlength="40" placeholder="First name or nickname" autocomplete="off"></label>
             <button class="btn primary" type="submit">Start studying</button>
           </form>
           <p class="muted small">Have a backup file? <label class="link-like">Import it<input type="file" accept=".json,application/json" data-change="import-backup" hidden></label></p>
