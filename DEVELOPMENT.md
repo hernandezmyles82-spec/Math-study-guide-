@@ -29,7 +29,9 @@ global `window.MSG` namespace (or `globalThis` under Node, so the tests can `req
 | `js/library.js` | `MSG.Library`: the categories and their reference-sheet concepts, written as one `String.raw` block parsed at load |
 | `js/generators.js` | `MSG.Generators`: per-category random problem generators keyed by the same category ids (`generate`, `js/generators.js:458`) |
 | `js/quiz.js` | `MSG.Quiz`: builds questions from cards, categories and exams; checks answers (`js/quiz.js:177`) |
-| `js/sync.js` | `MSG.Sync`: when the site runs as a claude.ai artifact, saves everything to the viewer's own account (private `data/users/<id>/state`, split into chunks); does nothing anywhere else |
+| `js/firebase-config.js` | Firebase web settings, or `null` for no website accounts. Must load before `js/sync.js` |
+| `js/sync.js` | `MSG.SyncEngine(backend)`: saves the whole store to an online account as a manifest plus chunks, newer copy wins. Also starts claude.ai account saving when running as a claude.ai artifact (skipped when Firebase is configured) |
+| `js/accounts.js` | `MSG.Accounts`: Firebase email/password accounts; data at `users/<uid>` (+ `chunks`), protected by `firestore.rules`. Does nothing when the config is `null` |
 | `js/app.js` | Hash router (`route`, `js/app.js:528`), views as HTML-string functions, delegated `data-action` / `data-form` handlers |
 | `vendor/katex/` | Bundled KaTeX for math rendering, so the site works offline and without a CDN |
 
@@ -86,6 +88,18 @@ The same files are published as a claude.ai artifact (private page, declared cap
 > ⚠️ **Watch out:** Never use `confirm()`, `alert()` or `prompt()`: claude.ai never shows them, and `confirm()` silently returns false. Use `ask()` in `js/app.js`, which shows an in-page dialog. File downloads go through `saveFile()`, which uses the `downloads` capability inside claude.ai and a normal download link elsewhere.
 
 > ⚠️ **Watch out:** Account sync keeps whichever copy has the newer `updatedAt` (set on every save). Editing on two devices while one is offline keeps only the later device's changes. Each save writes new chunk ids before switching the manifest, so an interrupted save never corrupts the saved copy; do not "simplify" that into overwriting the same chunk ids.
+
+### Website accounts (Firebase)
+
+Setup steps for the site owner are in `FIREBASE-SETUP.md`. With a config set, `route()` shows the
+log in / create account screen until Firebase reports a signed-in user and their notes have loaded
+(`MSG.Accounts.loaded`).
+
+> ⚠️ **Watch out:** With accounts on, the browser copy is stored per account (`mathStudyGuide.v1:<uid>`, via `Store.useAccount`), and nothing is loaded while nobody is logged in. Never read or write the plain `mathStudyGuide.v1` key in account mode, or one student would see the previous student's notes on a shared computer.
+
+> ⚠️ **Watch out:** Logging out must call `engine.flush()` before `auth.signOut()` (see `A.logOut`), or the last few seconds of changes are lost: saves are delayed 1.5 s to group edits.
+
+> ⚠️ **Watch out:** Firebase cannot run inside the claude.ai artifact (its sandbox blocks outside connections). When publishing the artifact, publish a `js/firebase-config.js` that sets `null`, even if the repository's copy has real settings.
 
 ### Tests
 
