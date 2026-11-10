@@ -3,12 +3,16 @@
 (function (root) {
   'use strict';
   const U = root.MSG.U;
-  const KEY = 'mathStudyGuide.v1';
+  const BASE_KEY = 'mathStudyGuide.v1';
   const DAY = 86400000;
+  // With website accounts (js/accounts.js) each signed-in person gets their own browser copy under
+  // BASE_KEY + ':' + uid, and KEY is null while nobody is signed in (nothing is kept in the browser).
+  let KEY = BASE_KEY;
   let memory = null;
 
   function blank() { return { profiles: {}, currentId: null }; }
   function load() {
+    if (!KEY) return blank();
     try {
       const raw = root.localStorage && root.localStorage.getItem(KEY);
       if (raw) return JSON.parse(raw);
@@ -16,10 +20,14 @@
     return memory || blank();
   }
   let db = load();
+  function persist() {
+    if (!KEY) return;
+    try { root.localStorage && root.localStorage.setItem(KEY, JSON.stringify(db)); } catch (e) { /* ignore */ }
+  }
   function save() {
     db.updatedAt = Date.now();
     memory = db;
-    try { root.localStorage && root.localStorage.setItem(KEY, JSON.stringify(db)); } catch (e) { /* ignore */ }
+    persist();
     if (S.onChange) S.onChange();
   }
 
@@ -36,6 +44,8 @@
   const S = {
     DAY,
     reload() { db = load(); },
+    /* Switch whose data is loaded: a uid for a signed-in account, or null for nobody. */
+    useAccount(uid) { KEY = uid ? BASE_KEY + ':' + uid : null; memory = null; db = load(); },
     profiles() { return Object.values(db.profiles).sort((a, b) => a.createdAt - b.createdAt); },
     current() { return db.profiles[db.currentId] || null; },
     setCurrent(id) { db.currentId = id; save(); },
@@ -261,7 +271,7 @@
       if (!data || typeof data.profiles !== 'object' || data.profiles === null) return false;
       db = data;
       memory = db;
-      try { root.localStorage && root.localStorage.setItem(KEY, JSON.stringify(db)); } catch (e) { /* ignore */ }
+      persist();
       return true;
     },
     _reset() { db = blank(); memory = null; save(); }

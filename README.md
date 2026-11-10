@@ -19,6 +19,12 @@ A website that turns **any math notes** into quizzes. Paste notes from class, a 
 ### Tip for AI notes
 On the "Add notes" page there's a ready-made prompt you can copy into ChatGPT, Claude or any AI along with your study guide. It makes the AI write notes in the format this site understands best.
 
+## Student accounts
+
+Students can create their own account (name, email, password) so everything they add is saved
+and follows them to any device. This uses Firebase (free). Follow [FIREBASE-SETUP.md](FIREBASE-SETUP.md)
+to turn it on. Until then, the site works without accounts and saves notes in each browser.
+
 ## Run it
 
 It's a static site with no build step and no server.
@@ -40,12 +46,17 @@ index.html          app shell
 css/styles.css      styles (light + dark mode, mobile friendly)
 js/util.js          helpers, safe math evaluator, answer checking
 js/store.js         profiles, notes, cards, exams, spaced repetition (localStorage)
+js/sync.js          saves to an online account (claude.ai or Firebase)
+js/accounts.js      website sign up / log in with Firebase
+js/firebase-config.js  your Firebase settings (null = accounts off)
+firestore.rules     database rules: each student reads/writes only their own data
 js/parser.js        notes → study cards
 js/library.js       math categories + reference sheets
 js/generators.js    randomized practice problems per category
 js/quiz.js          builds quizzes from cards / categories / exams
 js/app.js           UI views and routing
 vendor/katex/       KaTeX math rendering (MIT license)
+vendor/firebase/    Firebase SDK 10.12.2 (Apache 2.0)
 tests/              Node tests + sample notes
 DEVELOPMENT.md      how the code works + pitfalls to avoid when changing it
 ```

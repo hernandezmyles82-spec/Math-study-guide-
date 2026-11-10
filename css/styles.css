@@ -312,3 +312,7 @@ details summary { cursor: pointer; font-weight: 650; }
 .btn.danger-solid { background: var(--hot); border-color: var(--hot); color: var(--on-status); }
 .btn:focus-visible, .choice:focus-visible, .tab:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }
+
+/* ---------- accounts ---------- */
+.auth { max-width: 440px; margin: 0 auto; }
+.form-error { color: var(--bad); font-weight: 600; margin: 0; }

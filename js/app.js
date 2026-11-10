@@ -49,6 +49,7 @@
     } catch (e) { /* leave raw text */ }
   }
   window.MSG.rerenderMath = () => renderMath($app);
+  window.MSG.route = () => route();
 
   const countdown = (n) => (n === 0 ? 'Today!' : n === 1 ? 'Tomorrow' : 'in ' + n + ' days');
   const pct = (r, t) => (t ? Math.round((100 * r) / t) : null);
@@ -96,6 +97,41 @@
   }
 
   /* ---------- views ---------- */
+  function authView() {
+    const A = window.MSG.Accounts;
+    if (A.error) return `<div class="card empty"><p>⚠️ ${esc(A.error)}</p></div>`;
+    if (!A.ready || A.user) return '<div class="card empty"><p>Loading…</p><p class="muted">Getting your notes ready.</p></div>';
+    const tab = sessionStorageGet('authTab') || 'login';
+    const tabs = `<div class="tabs"><button class="tab ${tab === 'login' ? 'active' : ''}" data-action="auth-tab" data-tab="login">Log in</button><button class="tab ${tab === 'signup' ? 'active' : ''}" data-action="auth-tab" data-tab="signup">Create account</button></div>`;
+    const err = '<p class="form-error" role="alert" hidden></p>';
+    let form;
+    if (tab === 'signup') {
+      form = `<form class="stack" data-form="signup">
+        <label>Your name<input id="su-name" name="name" required maxlength="40" placeholder="First name or nickname" autocomplete="nickname"></label>
+        <label>Email<input id="su-email" name="email" type="email" required autocomplete="email"></label>
+        <label>Password<input id="su-pass" name="password" type="password" required minlength="6" autocomplete="new-password" placeholder="At least 6 characters"></label>
+        ${err}<button class="btn primary" type="submit">Create account</button></form>`;
+    } else if (tab === 'reset') {
+      form = `<form class="stack" data-form="reset">
+        <p class="small">Enter your email and we'll send you a link to choose a new password.</p>
+        <label>Email<input id="rs-email" name="email" type="email" required autocomplete="email"></label>
+        ${err}<button class="btn primary" type="submit">Send reset link</button>
+        <button class="btn ghost" type="button" data-action="auth-tab" data-tab="login">Back to log in</button></form>`;
+    } else {
+      form = `<form class="stack" data-form="login">
+        <label>Email<input id="li-email" name="email" type="email" required autocomplete="email"></label>
+        <label>Password<input id="li-pass" name="password" type="password" required autocomplete="current-password"></label>
+        ${err}<button class="btn primary" type="submit">Log in</button>
+        <button class="btn ghost small" type="button" data-action="auth-tab" data-tab="reset">Forgot your password?</button></form>`;
+    }
+    return `
+      <section class="hero">
+        <h1>Turn your math notes into quizzes.</h1>
+        <p class="lead">Paste notes from class, a study guide, or any AI chat. We turn them into study cards, quiz you over time, and help you cram before a test. Make a free account and everything you add is saved, on any device.</p>
+      </section>
+      <div class="auth card">${tabs}${form}</div>`;
+  }
+
   function welcome() {
     const profiles = Store.profiles();
     return `
@@ -112,7 +148,7 @@
         <div class="card">
           <h2>${profiles.length ? 'Create a new profile' : 'Create your profile'}</h2>
           <form data-form="create-profile" class="stack">
-            <label>Your name<input name="name" required maxlength="40" placeholder="e.g. Myles" autocomplete="off"></label>
+            <label>Your name<input name="name" required maxlength="40" placeholder="First name or nickname" autocomplete="off"></label>
             <button class="btn primary" type="submit">Start studying</button>
           </form>
           <p class="muted small">Have a backup file? <label class="link-like">Import it<input type="file" accept=".json,application/json" data-change="import-backup" hidden></label></p>
@@ -412,6 +448,11 @@ Include every key vocabulary word, every formula, and at least 10 practice quest
       </div>`;
   }
 
+  function accountBox() {
+    const A = window.MSG.Accounts;
+    if (!A || !A.user) return '';
+    return `<h2>Account</h2><p class="small">Logged in as <b>${esc(A.user.email || '')}</b>.</p><div class="row"><button class="btn" data-action="log-out">Log out</button></div>`;
+  }
   function settingsView() {
     const p = Store.current();
     const st = Store.stats();
@@ -426,8 +467,9 @@ Include every key vocabulary word, every formula, and at least 10 practice quest
           <button class="btn primary" type="submit">Save</button>
         </form>
         <div class="card stack">
+          ${accountBox()}
           <h2>Backup & devices</h2>
-          <p class="small">Your notes are stored in this browser. Download a backup to keep them safe or to move them to another computer or phone.</p>
+          <p class="small">${window.MSG.Accounts && window.MSG.Accounts.user ? 'Your notes are saved to your account. You can also download a backup file to keep your own copy.' : 'Your notes are stored in this browser. Download a backup to keep them safe or to move them to another computer or phone.'}</p>
           <div class="row"><button class="btn" data-action="export">⬇️ Download backup</button><label class="btn">⬆️ Import backup<input type="file" accept=".json,application/json" data-change="import-backup" hidden></label></div>
           <h2>Profiles</h2>
           <div class="row"><a class="btn" href="#welcome">Switch / add profile</a><button class="btn danger" data-action="delete-profile">Delete this profile</button></div>
@@ -551,7 +593,7 @@ Include every key vocabulary word, every formula, and at least 10 practice quest
 
   /* ---------- router ---------- */
   const views = {
-    welcome, dashboard, notes: notesList, 'notes-new': () => noteEditor(null), note: noteView, 'note-edit': noteEditor,
+    auth: authView, welcome, dashboard, notes: notesList, 'notes-new': () => noteEditor(null), note: noteView, 'note-edit': noteEditor,
     exams: examsView, categories: categoriesView, category: categoryView, profile: settingsView, quiz: quizView
   };
   function route() {
@@ -560,7 +602,10 @@ Include every key vocabulary word, every formula, and at least 10 practice quest
     const parts = hash.split('--');
     let name = parts[0] || 'dashboard';
     const arg = parts[1];
-    if (!Store.current() && name !== 'welcome') name = 'welcome';
+    const A = window.MSG.Accounts;
+    if (A && A.enabled && (!A.ready || !A.user || A.error)) name = 'auth';
+    else if (A && A.enabled && !A.loaded) name = 'auth'; // shows "Loading…" while the account's notes arrive
+    else if (!Store.current() && name !== 'welcome') name = 'welcome';
     const view = views[name] || notFound;
     $app.innerHTML = view(arg);
     document.querySelectorAll('[data-nav]').forEach((a) => a.classList.toggle('active', a.dataset.nav === name || (name.startsWith('note') && a.dataset.nav === 'notes') || (name === 'category' && a.dataset.nav === 'categories')));
@@ -581,6 +626,12 @@ Include every key vocabulary word, every formula, and at least 10 practice quest
 
   /* ---------- actions ---------- */
   const actions = {
+    'auth-tab': (el) => { sessionStorageSet('authTab', el.dataset.tab); route(); },
+    'log-out': async (el) => {
+      el.disabled = true;
+      try { await window.MSG.Accounts.logOut(); session = null; sessionStorageSet('authTab', 'login'); location.hash = ''; toast('Logged out'); }
+      catch (e) { el.disabled = false; toast(window.MSG.Accounts.message(e)); }
+    },
     'pick-profile': (el) => { Store.setCurrent(el.dataset.id); go('#dashboard'); },
     'start-review': () => startQuiz('Daily review', Quiz.dailyReview(Store.current().settings.dailyLimit)),
     'start-weak': () => startQuiz('Weakest cards', Quiz.weakest(Store.current().settings.quizLength)),
@@ -630,7 +681,18 @@ Include every key vocabulary word, every formula, and at least 10 practice quest
     }
   };
 
+  async function authSubmit(f, fn, okMsg) {
+    const btn = f.querySelector('button[type=submit]');
+    const err = f.querySelector('.form-error');
+    err.hidden = true; btn.disabled = true;
+    try { await fn(); if (okMsg) toast(okMsg); }
+    catch (e) { err.textContent = window.MSG.Accounts.message(e); err.hidden = false; }
+    btn.disabled = false;
+  }
   const forms = {
+    login: (f) => authSubmit(f, () => window.MSG.Accounts.logIn(f.email.value.trim(), f.password.value)),
+    signup: (f) => authSubmit(f, () => window.MSG.Accounts.signUp(f.name.value.trim(), f.email.value.trim(), f.password.value), 'Account created. Welcome!'),
+    reset: (f) => authSubmit(f, () => window.MSG.Accounts.resetPassword(f.email.value.trim()), 'Reset link sent. Check your email (and your spam folder).'),
     'create-profile': (f) => { Store.createProfile(f.name.value); toast('Welcome, ' + Store.current().name + '!'); go('#dashboard'); },
     'save-note': (f) => {
       const fields = { title: f.title.value.trim(), course: f.course.value.trim(), categoryId: f.categoryId.value, content: f.content.value };
@@ -718,7 +780,8 @@ Include every key vocabulary word, every formula, and at least 10 practice quest
   const SYNC_TEXT = {
     local: 'Your notes and progress are saved in this browser. Use Profile → Backup to move them to another device.',
     connecting: 'Connecting to your account…',
-    synced: '✓ Saved to your claude.ai account: your notes follow you to any device where you sign in.',
+    synced: '✓ Saved to your account. Your notes follow you to any device where you log in.',
+    signedout: 'Log in or create a free account to save your notes.',
     saving: 'Saving…',
     error: 'Could not reach your account just now. Changes are kept in this browser and will save when the connection returns.',
     full: 'Your account storage is full. Delete old notes, then keep studying; changes are kept in this browser meanwhile.'
