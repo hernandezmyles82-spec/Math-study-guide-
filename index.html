@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Math Study Guide</title>
+  <meta name="description" content="Turn your math notes into quizzes, review them over time, cram before a test, and practice any math topic from arithmetic to topology.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>∑</text></svg>">
+  <link rel="stylesheet" href="vendor/katex/katex.min.css">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#dashboard"><span class="logo">∑</span> Math Study Guide</a>
+    <nav class="nav" id="nav">
+      <a href="#dashboard" data-nav="dashboard">Home</a>
+      <a href="#notes" data-nav="notes">My Notes</a>
+      <a href="#exams" data-nav="exams">Test Prep</a>
+      <a href="#categories" data-nav="categories">Categories</a>
+      <a href="#profile" data-nav="profile">Profile</a>
+    </nav>
+    <a class="profile-chip" id="profileChip" href="#welcome" title="Switch profile"></a>
+  </header>
+
+  <main id="app" class="container" aria-live="polite"></main>
+
+  <footer class="footer"><span id="syncStatus" data-state="local">Your notes and progress are saved in this browser. Use Profile → Backup to move them to another device.</span></footer>
+
+  <script src="js/util.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/parser.js"></script>
+  <script src="js/library.js"></script>
+  <script src="js/generators.js"></script>
+  <script src="js/quiz.js"></script>
+  <script src="js/sync.js"></script>
+  <script src="js/app.js"></script>
+  <script defer src="vendor/katex/katex.min.js"></script>
+  <script defer src="vendor/katex/auto-render.min.js" onload="window.MSG && window.MSG.rerenderMath && window.MSG.rerenderMath()"></script>
+</body>
+</html>
