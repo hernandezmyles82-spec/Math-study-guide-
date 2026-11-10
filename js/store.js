@@ -17,8 +17,10 @@
   }
   let db = load();
   function save() {
+    db.updatedAt = Date.now();
     memory = db;
     try { root.localStorage && root.localStorage.setItem(KEY, JSON.stringify(db)); } catch (e) { /* ignore */ }
+    if (S.onChange) S.onChange();
   }
 
   function newSrs(now) { return { due: now || Date.now(), interval: 0, ease: 2.5, reps: 0, lapses: 0, seen: false, last: 0 }; }
@@ -251,6 +253,16 @@
       };
       db.profiles[p.id] = p; db.currentId = p.id; save();
       return p;
+    },
+    /* ---------- account sync (js/sync.js) ---------- */
+    onChange: null,
+    snapshot() { return db; },
+    replaceAll(data) {
+      if (!data || typeof data.profiles !== 'object' || data.profiles === null) return false;
+      db = data;
+      memory = db;
+      try { root.localStorage && root.localStorage.setItem(KEY, JSON.stringify(db)); } catch (e) { /* ignore */ }
+      return true;
     },
     _reset() { db = blank(); memory = null; save(); }
   };

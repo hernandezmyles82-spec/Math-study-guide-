@@ -60,6 +60,35 @@
     setTimeout(() => t.classList.add('show'), 10);
     setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 300); }, 2600);
   }
+  /* In-page confirmation dialog. Browser confirm()/alert() are not shown inside a claude.ai artifact. */
+  function ask(message, okLabel) {
+    return new Promise((resolve) => {
+      const wrap = document.createElement('div');
+      wrap.className = 'modal-backdrop';
+      wrap.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-labelledby="askMsg"><p id="askMsg">${esc(message)}</p><div class="row"><button class="btn danger-solid" type="button" data-ok>${esc(okLabel || 'Delete')}</button><button class="btn" type="button" data-cancel>Cancel</button></div></div>`;
+      const done = (v) => { wrap.remove(); document.removeEventListener('keydown', onKey, true); resolve(v); };
+      const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); done(false); } };
+      wrap.addEventListener('click', (e) => { if (e.target === wrap || e.target.closest('[data-cancel]')) done(false); else if (e.target.closest('[data-ok]')) done(true); });
+      document.addEventListener('keydown', onKey, true);
+      document.body.appendChild(wrap);
+      wrap.querySelector('[data-cancel]').focus();
+    });
+  }
+  async function saveFile(filename, text) {
+    // Inside claude.ai the page must ask through the "downloads" capability; elsewhere a normal download link works.
+    if (window.claude && window.claude.use) {
+      const dl = await window.claude.use('downloads');
+      if (dl) {
+        try { await dl.save({ filename, data: new Blob([text], { type: 'application/json' }) }); return true; } catch (e) { return false; }
+      }
+    }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+    a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    return true;
+  }
   function go(hash) { if (location.hash === hash) route(); else location.hash = hash; }
   function mastery(cards) {
     if (!cards.length) return 0;
@@ -114,7 +143,7 @@
     return `
       <div class="page-head">
         <div><h1>${hello}, ${esc(p.name)} 👋</h1><p class="muted">${st.streak ? `🔥 ${plural(st.streak, 'day')} study streak, keep it going!` : 'Study a little every day to build a streak.'}</p></div>
-        <a class="btn primary" href="#/notes/new">+ Add notes</a>
+        <a class="btn primary" href="#notes-new">+ Add notes</a>
       </div>
       <div class="stats">
         <div class="stat"><span>${st.due}</span>cards due</div>
@@ -126,7 +155,7 @@
         <div class="card highlight">
           <h2>📅 Daily review</h2>
           ${st.cards === 0 ? `<p>You don't have any study cards yet. Add your notes and we'll build them for you, or pick a topic from the math categories.</p>
-            <div class="row"><a class="btn primary" href="#/notes/new">Add my notes</a><a class="btn" href="#/categories">Browse categories</a></div>`
+            <div class="row"><a class="btn primary" href="#notes-new">Add my notes</a><a class="btn" href="#categories">Browse categories</a></div>`
           : st.due > 0 ? `<p>You have <b>${plural(st.due, 'card')}</b> ready for review. Cards you miss come back sooner, and cards you know come back later.</p>
             <div class="row"><button class="btn primary" data-action="start-review">Start review (${Math.min(st.due, p.settings.dailyLimit)})</button><button class="btn" data-action="start-weak">Practice weakest</button></div>`
           : `<p>✅ You're all caught up! Your next cards are due ${nextDueText()}.</p>
@@ -136,14 +165,14 @@
           <h2>📝 Upcoming tests & quizzes</h2>
           ${exams.length ? `<ul class="list">${exams.slice(0, 4).map((e) => { const n = U.daysUntil(e.date); return `<li><div><b>${esc(e.title)}</b> <span class="badge ${n <= 1 ? 'hot' : ''}">${countdown(n)}</span></div><div class="row tight"><button class="btn small primary" data-action="exam-quiz" data-id="${e.id}" data-mode="${n <= 1 ? 'cram' : 'quick'}">${n <= 1 ? 'Cram now' : 'Quick quiz'}</button></div></li>`; }).join('')}</ul>`
           : `<p class="muted">Got a quiz or test coming up? Add it and we'll build a practice test from your notes.</p>`}
-          <a class="btn" href="#/exams">+ Add a test date</a>
+          <a class="btn" href="#exams">+ Add a test date</a>
         </div>
       </div>
-      ${weak.length ? `<div class="card"><h2>🎯 Weak spots to work on</h2><ul class="list">${weak.map(([k, s, r]) => `<li><div><b>${esc(k)}</b> <span class="muted small">${Math.round(r * 100)}% correct (${s.right}/${s.right + s.wrong})</span></div>${s.kind === 'cat' ? `<a class="btn small" href="#/category/${s.id}">Practice</a>` : `<button class="btn small" data-action="start-topic" data-topic="${esc(k)}">Practice</button>`}</li>`).join('')}</ul></div>` : ''}
+      ${weak.length ? `<div class="card"><h2>🎯 Weak spots to work on</h2><ul class="list">${weak.map(([k, s, r]) => `<li><div><b>${esc(k)}</b> <span class="muted small">${Math.round(r * 100)}% correct (${s.right}/${s.right + s.wrong})</span></div>${s.kind === 'cat' ? `<a class="btn small" href="#category--${s.id}">Practice</a>` : `<button class="btn small" data-action="start-topic" data-topic="${esc(k)}">Practice</button>`}</li>`).join('')}</ul></div>` : ''}
       <div class="grid two">
         <div class="card">
           <h2>📚 Recent notes</h2>
-          ${p.notes.length ? `<ul class="list">${p.notes.slice(0, 4).map((n) => `<li><a href="#/note/${n.id}"><b>${esc(n.title)}</b></a><span class="muted small">${plural(Store.cardsForNote(n.id).length, 'card')}</span></li>`).join('')}</ul><a href="#/notes">All notes →</a>` : '<p class="muted">No notes yet.</p>'}
+          ${p.notes.length ? `<ul class="list">${p.notes.slice(0, 4).map((n) => `<li><a href="#note--${n.id}"><b>${esc(n.title)}</b></a><span class="muted small">${plural(Store.cardsForNote(n.id).length, 'card')}</span></li>`).join('')}</ul><a href="#notes">All notes →</a>` : '<p class="muted">No notes yet.</p>'}
         </div>
         <div class="card">
           <h2>🏁 Recent quizzes</h2>
@@ -164,18 +193,18 @@
   function notesList() {
     const p = Store.current();
     return `
-      <div class="page-head"><div><h1>My Notes</h1><p class="muted">Every set of notes becomes study cards you can be quizzed on.</p></div><a class="btn primary" href="#/notes/new">+ Add notes</a></div>
+      <div class="page-head"><div><h1>My Notes</h1><p class="muted">Every set of notes becomes study cards you can be quizzed on.</p></div><a class="btn primary" href="#notes-new">+ Add notes</a></div>
       ${p.notes.length ? `<div class="grid three">${p.notes.map((n) => {
         const cards = Store.cardsForNote(n.id);
         const cat = Library.get(n.categoryId);
         return `<div class="card note-card">
-          <a href="#/note/${n.id}" class="note-title">${esc(n.title)}</a>
+          <a href="#note--${n.id}" class="note-title">${esc(n.title)}</a>
           <div class="muted small">${esc(n.course || (cat ? cat.name : ''))} ${n.course || cat ? '·' : ''} ${new Date(n.updatedAt).toLocaleDateString()}</div>
           <div class="meter"><div style="width:${mastery(cards)}%"></div></div>
           <div class="muted small">${plural(cards.length, 'card')} · ${mastery(cards)}% mastered</div>
-          <div class="row tight"><button class="btn small primary" data-action="quiz-note" data-id="${n.id}" ${cards.length ? '' : 'disabled'}>Quiz me</button><a class="btn small" href="#/note/${n.id}">Open</a></div>
+          <div class="row tight"><button class="btn small primary" data-action="quiz-note" data-id="${n.id}" ${cards.length ? '' : 'disabled'}>Quiz me</button><a class="btn small" href="#note--${n.id}">Open</a></div>
         </div>`; }).join('')}</div>`
-      : `<div class="card empty"><p>📄 No notes yet.</p><p class="muted">Paste in notes from class, a study guide, or an AI chat and we'll turn them into quizzes.</p><a class="btn primary" href="#/notes/new">Add my first notes</a></div>`}`;
+      : `<div class="card empty"><p>📄 No notes yet.</p><p class="muted">Paste in notes from class, a study guide, or an AI chat and we'll turn them into quizzes.</p><a class="btn primary" href="#notes-new">Add my first notes</a></div>`}`;
   }
 
   const AI_PROMPT = `Turn my math study guide into study notes I can paste into a quiz website. Use exactly this format:
@@ -217,7 +246,7 @@ Include every key vocabulary word, every formula, and at least 10 practice quest
             <span class="muted small" id="parseCount"></span>
           </div>
           <div id="parsePreview" class="preview"></div>
-          <div class="row"><button class="btn primary" type="submit">${n ? 'Save changes' : 'Save notes & build quiz'}</button><a class="btn" href="${n ? '#/note/' + n.id : '#/notes'}">Cancel</a></div>
+          <div class="row"><button class="btn primary" type="submit">${n ? 'Save changes' : 'Save notes & build quiz'}</button><a class="btn" href="${n ? '#note--' + n.id : '#notes'}">Cancel</a></div>
         </form>
         <aside class="card tips">
           <h3>💡 Tips for the best quizzes</h3>
@@ -259,9 +288,9 @@ Include every key vocabulary word, every formula, and at least 10 practice quest
     const tab = sessionStorageGet('noteTab') || 'cards';
     return `
       <div class="page-head">
-        <div><a href="#/notes" class="muted small">← My Notes</a><h1>${esc(n.title)}</h1>
-        <p class="muted">${esc(n.course)}${n.course && cat ? ' · ' : ''}${cat ? `<a href="#/category/${cat.id}">${esc(cat.name)}</a>` : ''} · ${plural(cards.length, 'study card')} · ${mastery(cards)}% mastered</p></div>
-        <div class="row tight"><button class="btn primary" data-action="quiz-note" data-id="${n.id}" ${cards.length ? '' : 'disabled'}>Quiz me on this</button><a class="btn" href="#/note-edit/${n.id}">Edit</a><button class="btn danger" data-action="delete-note" data-id="${n.id}">Delete</button></div>
+        <div><a href="#notes" class="muted small">← My Notes</a><h1>${esc(n.title)}</h1>
+        <p class="muted">${[n.course ? esc(n.course) : '', cat ? `<a href="#category--${cat.id}">${esc(cat.name)}</a>` : '', plural(cards.length, 'study card'), mastery(cards) + '% mastered'].filter(Boolean).join(' · ')}</p></div>
+        <div class="row tight"><button class="btn primary" data-action="quiz-note" data-id="${n.id}" ${cards.length ? '' : 'disabled'}>Quiz me on this</button><a class="btn" href="#note-edit--${n.id}">Edit</a><button class="btn danger" data-action="delete-note" data-id="${n.id}">Delete</button></div>
       </div>
       <div class="tabs"><button class="tab ${tab === 'cards' ? 'active' : ''}" data-action="note-tab" data-tab="cards">Study cards (${cards.length})</button><button class="tab ${tab === 'notes' ? 'active' : ''}" data-action="note-tab" data-tab="notes">My notes</button></div>
       ${tab === 'notes' ? `<div class="card notes-body">${md(n.content)}</div>` : `
@@ -303,7 +332,7 @@ Include every key vocabulary word, every formula, and at least 10 practice quest
           <label>What is it?<input name="title" required maxlength="80" placeholder="e.g. Chapter 5 Quiz"></label>
           <label>Date<input name="date" type="date" required value="${tomorrow}"></label>
           <fieldset><legend>Which of my notes are on it?</legend>
-            ${p.notes.length ? p.notes.map((n) => `<label class="check"><input type="checkbox" name="noteIds" value="${n.id}"> ${esc(n.title)}</label>`).join('') : '<p class="muted small">No notes yet. <a href="#/notes/new">Add notes</a> or choose topics below.</p>'}
+            ${p.notes.length ? p.notes.map((n) => `<label class="check"><input type="checkbox" name="noteIds" value="${n.id}"> ${esc(n.title)}</label>`).join('') : '<p class="muted small">No notes yet. <a href="#notes-new">Add notes</a> or choose topics below.</p>'}
           </fieldset>
           <fieldset><legend>Math topics on it (adds practice problems)</legend>
             <div class="scroll-box">${Library.LEVELS.map((lv) => `<div class="muted small group-label">${esc(lv)}</div>` + Library.categories.filter((c) => c.level === lv).map((c) => `<label class="check"><input type="checkbox" name="categoryIds" value="${c.id}"> ${c.icon} ${esc(c.name)}</label>`).join('')).join('')}</div>
@@ -346,7 +375,7 @@ Include every key vocabulary word, every formula, and at least 10 practice quest
         if (!cats.length) return '';
         return `<h2 class="level">${esc(lv)}</h2><div class="grid three">${cats.map((c) => {
           const s = p.catStats[c.id];
-          return `<a class="card cat-card" href="#/category/${c.id}"><span class="cat-icon">${c.icon}</span><span><b>${esc(c.name)}</b><span class="muted small">${esc(c.blurb)}</span>${s ? `<span class="small score ${pct(s.right, s.right + s.wrong) >= 80 ? 'good' : 'ok'}">${pct(s.right, s.right + s.wrong)}% · ${s.right + s.wrong} answered</span>` : ''}</span></a>`;
+          return `<a class="card cat-card" href="#category--${c.id}"><span class="cat-icon">${c.icon}</span><span><b>${esc(c.name)}</b><span class="muted small">${esc(c.blurb)}</span>${s ? `<span class="small score ${pct(s.right, s.right + s.wrong) >= 80 ? 'good' : 'ok'}">${pct(s.right, s.right + s.wrong)}% · ${s.right + s.wrong} answered</span>` : ''}</span></a>`;
         }).join('')}</div>`;
       }).join('') || '<p class="muted">No topics match your search.</p>'}`;
   }
@@ -359,7 +388,7 @@ Include every key vocabulary word, every formula, and at least 10 practice quest
     const added = Store.libraryCardsAdded(id);
     const diff = Number(sessionStorageGet('difficulty') || 2);
     return `
-      <div class="page-head"><div><a href="#/categories" class="muted small">← Categories</a><h1>${c.icon} ${esc(c.name)}</h1><p class="muted">${esc(c.level)} · ${esc(c.blurb)}</p></div></div>
+      <div class="page-head"><div><a href="#categories" class="muted small">← Categories</a><h1>${c.icon} ${esc(c.name)}</h1><p class="muted">${esc(c.level)} · ${esc(c.blurb)}</p></div></div>
       <div class="grid editor">
         <div class="card">
           <h2>📖 Reference sheet</h2>
@@ -401,24 +430,24 @@ Include every key vocabulary word, every formula, and at least 10 practice quest
           <p class="small">Your notes are stored in this browser. Download a backup to keep them safe or to move them to another computer or phone.</p>
           <div class="row"><button class="btn" data-action="export">⬇️ Download backup</button><label class="btn">⬆️ Import backup<input type="file" accept=".json,application/json" data-change="import-backup" hidden></label></div>
           <h2>Profiles</h2>
-          <div class="row"><a class="btn" href="#/welcome">Switch / add profile</a><button class="btn danger" data-action="delete-profile">Delete this profile</button></div>
+          <div class="row"><a class="btn" href="#welcome">Switch / add profile</a><button class="btn danger" data-action="delete-profile">Delete this profile</button></div>
         </div>
       </div>`;
   }
 
-  function notFound() { return '<div class="card empty"><p>That page doesn\'t exist.</p><a class="btn" href="#/dashboard">Go home</a></div>'; }
+  function notFound() { return '<div class="card empty"><p>That page doesn\'t exist.</p><a class="btn" href="#dashboard">Go home</a></div>'; }
 
   /* ---------- quiz ---------- */
   function startQuiz(title, questions, opts) {
     opts = opts || {};
     questions = (questions || []).filter(Boolean);
     if (!questions.length) { toast('No questions available yet. Add some notes or pick a category first.'); return; }
-    session = { title, questions, i: 0, results: [], answered: false, correct: false, response: null, requeue: !!opts.requeue, requeued: new Map(), back: opts.back || '#/dashboard', record: opts.record !== false, startedAt: Date.now() };
-    go('#/quiz');
+    session = { title, questions, i: 0, results: [], answered: false, correct: false, response: null, requeue: !!opts.requeue, requeued: new Map(), back: opts.back || '#dashboard', record: opts.record !== false, startedAt: Date.now() };
+    go('#quiz');
   }
 
   function quizView() {
-    if (!session) return '<div class="card empty"><p>No quiz in progress.</p><a class="btn primary" href="#/dashboard">Go home</a></div>';
+    if (!session) return '<div class="card empty"><p>No quiz in progress.</p><a class="btn primary" href="#dashboard">Go home</a></div>';
     if (session.i >= session.questions.length) return quizSummary();
     const q = session.questions[session.i];
     const total = session.questions.length;
@@ -522,15 +551,15 @@ Include every key vocabulary word, every formula, and at least 10 practice quest
 
   /* ---------- router ---------- */
   const views = {
-    welcome, dashboard, notes: notesList, 'notes/new': () => noteEditor(null), note: noteView, 'note-edit': noteEditor,
-    exams: examsView, categories: categoriesView, category: categoryView, settings: settingsView, quiz: quizView
+    welcome, dashboard, notes: notesList, 'notes-new': () => noteEditor(null), note: noteView, 'note-edit': noteEditor,
+    exams: examsView, categories: categoriesView, category: categoryView, profile: settingsView, quiz: quizView
   };
   function route() {
+    // Routes are plain "#name" or "#name--id" so they also work inside a claude.ai artifact.
     const hash = location.hash.replace(/^#\/?/, '');
-    const parts = hash.split('/');
+    const parts = hash.split('--');
     let name = parts[0] || 'dashboard';
-    let arg = parts[1];
-    if (name === 'notes' && arg === 'new') { name = 'notes/new'; arg = null; }
+    const arg = parts[1];
     if (!Store.current() && name !== 'welcome') name = 'welcome';
     const view = views[name] || notFound;
     $app.innerHTML = view(arg);
@@ -540,7 +569,7 @@ Include every key vocabulary word, every formula, and at least 10 practice quest
     const chip = document.getElementById('profileChip');
     chip.innerHTML = p ? `<span class="avatar">${esc(p.name[0] || '?').toUpperCase()}</span><span class="chip-name">${esc(p.name)}</span>` : '';
     chip.style.display = p ? '' : 'none';
-    document.title = (name === 'welcome' ? '' : (name.charAt(0).toUpperCase() + name.slice(1)).replace(/[-/].*/, '') + ' · ') + 'Math Study Guide';
+    document.title = (name === 'welcome' ? '' : (name.charAt(0).toUpperCase() + name.slice(1)).replace(/-.*/, '') + ' · ') + 'Math Study Guide';
     renderMath($app);
     const ta = $app.querySelector('textarea[data-input="preview-notes"]');
     if (ta && ta.value) previewNotes(ta);
@@ -552,17 +581,17 @@ Include every key vocabulary word, every formula, and at least 10 practice quest
 
   /* ---------- actions ---------- */
   const actions = {
-    'pick-profile': (el) => { Store.setCurrent(el.dataset.id); go('#/dashboard'); },
+    'pick-profile': (el) => { Store.setCurrent(el.dataset.id); go('#dashboard'); },
     'start-review': () => startQuiz('Daily review', Quiz.dailyReview(Store.current().settings.dailyLimit)),
     'start-weak': () => startQuiz('Weakest cards', Quiz.weakest(Store.current().settings.quizLength)),
     'start-topic': (el) => startQuiz(el.dataset.topic, Quiz.weakest(15, Store.current().cards.filter((c) => (c.topic || 'General') === el.dataset.topic))),
-    'quiz-note': (el) => { const n = Store.note(el.dataset.id); startQuiz(n.title, Quiz.forNote(n.id).concat(n.categoryId ? Quiz.forCategory(n.categoryId, 3, 2).filter((q) => !q.conceptId) : []), { back: '#/note/' + n.id }); },
+    'quiz-note': (el) => { const n = Store.note(el.dataset.id); startQuiz(n.title, Quiz.forNote(n.id).concat(n.categoryId ? Quiz.forCategory(n.categoryId, 3, 2).filter((q) => !q.conceptId) : []), { back: '#note--' + n.id }); },
     'exam-quiz': (el) => {
       const e = Store.exam(el.dataset.id); const mode = el.dataset.mode;
-      startQuiz(e.title + (mode === 'cram' ? ': cram' : mode === 'full' ? ': practice test' : ': quick quiz'), Quiz.forExam(e, mode), { requeue: mode === 'cram', back: '#/exams' });
+      startQuiz(e.title + (mode === 'cram' ? ': cram' : mode === 'full' ? ': practice test' : ': quick quiz'), Quiz.forExam(e, mode), { requeue: mode === 'cram', back: '#exams' });
     },
-    'delete-exam': (el) => { if (confirm('Delete this test?')) { Store.deleteExam(el.dataset.id); route(); } },
-    'delete-note': (el) => { if (confirm('Delete these notes and all their study cards?')) { Store.deleteNote(el.dataset.id); go('#/notes'); toast('Notes deleted'); } },
+    'delete-exam': async (el) => { if (await ask('Delete this test?')) { Store.deleteExam(el.dataset.id); route(); } },
+    'delete-note': async (el) => { if (await ask('Delete these notes and all their study cards?')) { Store.deleteNote(el.dataset.id); go('#notes'); toast('Notes deleted'); } },
     'note-tab': (el) => { sessionStorageSet('noteTab', el.dataset.tab); route(); },
     'delete-card': (el) => { Store.deleteCard(el.dataset.id); route(); },
     'edit-card': (el) => {
@@ -575,15 +604,11 @@ Include every key vocabulary word, every formula, and at least 10 practice quest
     'copy-prompt': () => { const t = document.getElementById('aiPrompt').textContent; (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => toast('Prompt copied! Paste it into your AI chat.'), () => toast('Select the prompt text and copy it.')); },
     'add-lib': (el) => { const c = Library.get(el.dataset.id); Store.addLibraryCards(c.id, c.concepts); toast(`Added ${c.concepts.length} cards to your review deck`); route(); },
     'remove-lib': (el) => { Store.removeLibraryCards(el.dataset.id); toast('Removed from your deck'); route(); },
-    export: () => {
-      const blob = new Blob([Store.exportProfile()], { type: 'application/json' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = 'math-study-guide-' + Store.current().name.replace(/\W+/g, '-').toLowerCase() + '-' + U.dateKey() + '.json';
-      document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    export: async () => {
+      const name = 'math-study-guide-' + Store.current().name.replace(/\W+/g, '-').toLowerCase() + '-' + U.dateKey() + '.json';
+      if (!(await saveFile(name, Store.exportProfile()))) toast('Backup not saved.');
     },
-    'delete-profile': () => { const p = Store.current(); if (confirm(`Delete the profile "${p.name}" and all its notes? This can't be undone.`)) { Store.deleteProfile(p.id); go('#/welcome'); } },
+    'delete-profile': async () => { const p = Store.current(); if (await ask(`Delete the profile "${p.name}" and all its notes? This can't be undone.`, 'Delete profile')) { Store.deleteProfile(p.id); go('#welcome'); } },
     'answer-mc': (el) => { if (session.answered) return; const i = Number(el.dataset.i); answer(Quiz.check(session.questions[session.i], i), i); },
     'dont-know': () => answer(false, ''),
     reveal: () => { session.revealed = true; route(); },
@@ -606,7 +631,7 @@ Include every key vocabulary word, every formula, and at least 10 practice quest
   };
 
   const forms = {
-    'create-profile': (f) => { Store.createProfile(f.name.value); toast('Welcome, ' + Store.current().name + '!'); go('#/dashboard'); },
+    'create-profile': (f) => { Store.createProfile(f.name.value); toast('Welcome, ' + Store.current().name + '!'); go('#dashboard'); },
     'save-note': (f) => {
       const fields = { title: f.title.value.trim(), course: f.course.value.trim(), categoryId: f.categoryId.value, content: f.content.value };
       const cards = parseNotes(fields.content, { title: fields.title });
@@ -614,7 +639,7 @@ Include every key vocabulary word, every formula, and at least 10 practice quest
       if (f.dataset.id) { note = Store.updateNote(f.dataset.id, fields, cards); toast('Notes updated'); }
       else { note = Store.addNote(fields, cards); toast(cards.length ? `Saved! Built ${plural(cards.length, 'study card')}.` : 'Saved. Add cards below.'); }
       sessionStorageSet('noteTab', 'cards');
-      go('#/note/' + note.id);
+      go('#note--' + note.id);
     },
     'add-card': (f) => { Store.addManualCard(f.dataset.id, f.front.value.trim(), f.back.value.trim(), Store.note(f.dataset.id).title); toast('Card added'); route(); },
     'edit-card': (f) => { Store.updateCard(f.dataset.id, f.front.value.trim(), f.back.value.trim()); route(); },
@@ -629,7 +654,7 @@ Include every key vocabulary word, every formula, and at least 10 practice quest
       const d = Number((f.querySelector('input[name=d]:checked') || { value: 2 }).value);
       sessionStorageSet('difficulty', d);
       const c = Library.get(f.dataset.id);
-      startQuiz(c.name + ' practice', Quiz.forCategory(c.id, Number(f.n.value), d), { back: '#/category/' + c.id });
+      startQuiz(c.name + ' practice', Quiz.forCategory(c.id, Number(f.n.value), d), { back: '#category--' + c.id });
     },
     settings: (f) => { Store.renameProfile(f.name.value); Store.updateSettings({ quizLength: Number(f.quizLength.value), dailyLimit: Number(f.dailyLimit.value) }); toast('Saved'); route(); },
     'answer-input': (f) => { const v = f.answer.value; if (!v.trim()) { f.answer.focus(); return; } answer(Quiz.check(session.questions[session.i], v), v); }
@@ -672,15 +697,15 @@ Include every key vocabulary word, every formula, and at least 10 practice quest
         if (!form.title.value) form.title.value = file.name.replace(/\.[^.]+$/, '');
         previewNotes(form.content);
       } else if (t.dataset.change === 'import-backup') {
-        try { const p = Store.importProfile(reader.result); toast('Imported profile ' + p.name); go('#/dashboard'); }
-        catch (err) { alert(err.message || 'Could not import that file.'); }
+        try { const p = Store.importProfile(reader.result); toast('Imported profile ' + p.name); go('#dashboard'); }
+        catch (err) { toast(err.message || 'Could not import that file.'); }
       }
     };
     reader.readAsText(file);
     t.value = '';
   });
   document.addEventListener('keydown', (e) => {
-    if (!session || !location.hash.startsWith('#/quiz')) return;
+    if (!session || !location.hash.startsWith('#quiz')) return;
     if (e.target.tagName === 'TEXTAREA') return;
     const q = session.questions[session.i];
     if (!q) return;
@@ -690,6 +715,19 @@ Include every key vocabulary word, every formula, and at least 10 practice quest
       if (i < q.choices.length) answer(Quiz.check(q, i), i);
     }
   });
+  const SYNC_TEXT = {
+    local: 'Your notes and progress are saved in this browser. Use Profile → Backup to move them to another device.',
+    connecting: 'Connecting to your account…',
+    synced: '✓ Saved to your claude.ai account: your notes follow you to any device where you sign in.',
+    saving: 'Saving…',
+    error: 'Could not reach your account just now. Changes are kept in this browser and will save when the connection returns.',
+    full: 'Your account storage is full. Delete old notes, then keep studying; changes are kept in this browser meanwhile.'
+  };
+  window.MSG.onSyncStatus = (st) => {
+    const f = document.getElementById('syncStatus');
+    if (f) { f.textContent = SYNC_TEXT[st] || SYNC_TEXT.local; f.dataset.state = st; }
+  };
+  window.MSG.onCloudLoad = () => { if (!location.hash.startsWith('#quiz')) route(); else toast('Your saved notes were loaded.'); };
   window.addEventListener('hashchange', route);
   window.addEventListener('storage', () => { Store.reload(); route(); });
   route();

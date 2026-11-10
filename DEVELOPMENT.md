@@ -29,6 +29,7 @@ global `window.MSG` namespace (or `globalThis` under Node, so the tests can `req
 | `js/library.js` | `MSG.Library`: the categories and their reference-sheet concepts, written as one `String.raw` block parsed at load |
 | `js/generators.js` | `MSG.Generators`: per-category random problem generators keyed by the same category ids (`generate`, `js/generators.js:458`) |
 | `js/quiz.js` | `MSG.Quiz`: builds questions from cards, categories and exams; checks answers (`js/quiz.js:177`) |
+| `js/sync.js` | `MSG.Sync`: when the site runs as a claude.ai artifact, saves everything to the viewer's own account (private `data/users/<id>/state`, split into chunks); does nothing anywhere else |
 | `js/app.js` | Hash router (`route`, `js/app.js:528`), views as HTML-string functions, delegated `data-action` / `data-form` handlers |
 | `vendor/katex/` | Bundled KaTeX for math rendering, so the site works offline and without a CDN |
 
@@ -73,6 +74,18 @@ view (`renderMath`, `js/app.js:38`) with `$`, `$$`, `\(` and `\[` delimiters. Ka
 text nodes, so escaped `&lt;` inside math still renders correctly.
 
 > ⚠️ **Watch out:** Single `$` is a math delimiter, so a note like "costs $5 and $10" renders the middle as math. Generators deliberately never print `$` for money (they say "dollars").
+
+### Running inside claude.ai
+
+The same files are published as a claude.ai artifact (private page, declared capabilities
+`db`, `user`, `downloads`). The artifact's page is `index.html` without its
+`<html>/<head>/<body>` wrapper; every other file is published alongside it at the same path.
+
+> ⚠️ **Watch out:** Routes are plain `#name` or `#name--id` (for example `#note--abc123`, `#category--decimals-percents`), not `#/path`. claude.ai only passes plain `#name` hashes, and it reserves some names: never use `settings`, `sidebar`, `customize`, `upgrade`, `downloads` or `comment-*` as a route. That is why the settings page is `#profile`.
+
+> ⚠️ **Watch out:** Never use `confirm()`, `alert()` or `prompt()`: claude.ai never shows them, and `confirm()` silently returns false. Use `ask()` in `js/app.js`, which shows an in-page dialog. File downloads go through `saveFile()`, which uses the `downloads` capability inside claude.ai and a normal download link elsewhere.
+
+> ⚠️ **Watch out:** Account sync keeps whichever copy has the newer `updatedAt` (set on every save). Editing on two devices while one is offline keeps only the later device's changes. Each save writes new chunk ids before switching the manifest, so an interrupted save never corrupts the saved copy; do not "simplify" that into overwriting the same chunk ids.
 
 ### Tests
 
