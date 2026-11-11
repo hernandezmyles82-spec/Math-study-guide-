@@ -79,9 +79,11 @@ text nodes, so escaped `&lt;` inside math still renders correctly.
 
 ### Running inside claude.ai
 
-The same files are published as a claude.ai artifact (private page, declared capabilities
-`db`, `user`, `downloads`). The artifact's page is `index.html` without its
-`<html>/<head>/<body>` wrapper; every other file is published alongside it at the same path.
+The site is also published as a claude.ai artifact (declared capabilities `db`, `user`,
+`downloads`). Build that page with `python3 tools/build-artifact.py OUTPUT.html`: it makes one
+self-contained page with every script, style and KaTeX font inlined, and Firebase turned off.
+
+> ⚠️ **Watch out:** Publish only that single built page to claude.ai. Separate stylesheet, script and font files can be blocked by claude.ai's sandbox, which leaves the site unstyled.
 
 > ⚠️ **Watch out:** Routes are plain `#name` or `#name--id` (for example `#note--abc123`, `#category--decimals-percents`), not `#/path`. claude.ai only passes plain `#name` hashes, and it reserves some names: never use `settings`, `sidebar`, `customize`, `upgrade`, `downloads` or `comment-*` as a route. That is why the settings page is `#profile`.
 
