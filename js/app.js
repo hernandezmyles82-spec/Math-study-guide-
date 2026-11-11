@@ -448,9 +448,62 @@ Include every key vocabulary word, every formula, and at least 10 practice quest
       </div>`;
   }
 
+  /* ---------- "Set up accounts" guide for the site owner (#setup) ---------- */
+  const SETUP_DOMAIN = location.hostname && location.hostname !== 'localhost' && !/claude/.test(location.hostname) ? location.hostname : 'hernandezmyles82-spec.github.io';
+  const SETUP_RULES = `rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+      match /chunks/{chunk} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
+    }
+  }
+}`;
+  function setupView() {
+    const A = window.MSG.Accounts;
+    const on = A && A.enabled;
+    const step = (n, title, body) => `<li class="setup-step"><span class="step-num" aria-hidden="true">${n}</span><div class="stack"><h3>${title}</h3>${body}</div></li>`;
+    const copyBox = (id, text) => `<pre class="ai-prompt" id="${id}">${esc(text)}</pre><button class="btn small" type="button" data-action="copy-text" data-target="${id}">Copy</button>`;
+    const ext = (href, label) => `<a class="btn small primary" href="${href}" target="_blank" rel="noopener">${label} ↗</a>`;
+    return `
+      <div class="page-head"><div><a href="${Store.current() ? '#profile' : '#welcome'}" class="muted small">← Back</a><h1>Set up student accounts</h1>
+      <p class="muted">${on ? '✅ Accounts are already on for this site.' : 'About 10 minutes, free. When you finish, students can create their own account, and everything they add is saved to it on any device.'}</p></div></div>
+      <ol class="setup">
+        ${step(1, 'Create a Firebase project', `<p>Sign in with your Google account and click <b>Create a project</b>. Name it <code>math-study-guide</code> and click <b>Continue</b> until it's done. You can turn Google Analytics off.</p><div class="row">${ext('https://console.firebase.google.com/', 'Open Firebase')}</div>`)}
+        ${step(2, 'Turn on email and password sign-in', `<p>In the left menu: <b>Build → Authentication → Get started</b>. Click <b>Email/Password</b>, switch the first toggle <b>on</b>, and click <b>Save</b>.</p>`)}
+        ${step(3, 'Allow your website', `<p>Still in Authentication, open the <b>Settings</b> tab → <b>Authorized domains</b> → <b>Add domain</b>, paste this, and click <b>Add</b>:</p>${copyBox('setupDomain', SETUP_DOMAIN)}`)}
+        ${step(4, 'Create the database', `<p>In the left menu: <b>Build → Firestore Database → Create database</b>. Pick a location near you, choose <b>Start in production mode</b>, and click <b>Create</b>.</p><p>Then open the <b>Rules</b> tab, delete everything there, paste these rules, and click <b>Publish</b>. They make each student's notes visible only to that student.</p>${copyBox('setupRules', SETUP_RULES)}`)}
+        ${step(5, 'Register the website and copy its settings', `<p>Click the <b>gear icon</b> (top left) → <b>Project settings</b>. Scroll to <b>Your apps</b> and click the <b>&lt;/&gt;</b> (web) icon. Name it <code>website</code>, leave Firebase Hosting unchecked, and click <b>Register app</b>.</p><p>Firebase shows code that starts with <code>const firebaseConfig = {</code>. Copy that whole block.</p>`)}
+        ${step(6, 'Check your settings', `<p>Paste the block here to check it before you send it. Nothing is saved or sent anywhere.</p>
+          <form class="stack" data-form="check-config">
+            <label for="cfgInput">Your firebaseConfig</label>
+            <textarea id="cfgInput" name="cfg" rows="9" required placeholder="const firebaseConfig = {&#10;  apiKey: &quot;AIza...&quot;,&#10;  authDomain: &quot;math-study-guide.firebaseapp.com&quot;,&#10;  projectId: &quot;math-study-guide&quot;,&#10;  ...&#10;};"></textarea>
+            <div class="row"><button class="btn primary" type="submit">Check settings</button></div>
+            <div id="cfgResult"></div>
+          </form>`)}
+        ${step(7, 'Send it to Claude', `<p>Paste the checked settings into your chat with Claude and ask for them to be added. The settings are not secret: every Firebase website includes them, and the rules from step 4 protect students' notes. Once they're added, visitors see <b>Log in / Create account</b>.</p>`)}
+      </ol>`;
+  }
+  function checkConfig(text) {
+    const cfg = {};
+    const re = /([A-Za-z]+)\s*:\s*["']([^"']*)["']/g;
+    let m;
+    while ((m = re.exec(text))) cfg[m[1]] = m[2];
+    const need = ['apiKey', 'authDomain', 'projectId', 'appId'];
+    const missing = need.filter((k) => !cfg[k]);
+    const problems = [];
+    if (missing.length) problems.push('Missing: ' + missing.join(', ') + '. Copy the whole block from Firebase, from "const firebaseConfig = {" to "};".');
+    if (cfg.apiKey && !/^AIza[\w-]{30,}$/.test(cfg.apiKey)) problems.push('The apiKey doesn\'t look complete. It should start with "AIza" and be about 39 characters long.');
+    if (cfg.authDomain && !/\.(firebaseapp\.com|web\.app)$/.test(cfg.authDomain)) problems.push('The authDomain should end with ".firebaseapp.com".');
+    return { cfg, problems };
+  }
+
   function accountBox() {
     const A = window.MSG.Accounts;
-    if (!A || !A.user) return '';
+    if (!A || !A.enabled) return '<h2>Student accounts</h2><p class="small">Accounts are off: notes save only in each browser. Turn them on so every student gets their own account that saves everywhere.</p><div class="row"><a class="btn" href="#setup">Set up student accounts</a></div>';
+    if (!A.user) return '';
     return `<h2>Account</h2><p class="small">Logged in as <b>${esc(A.user.email || '')}</b>.</p><div class="row"><button class="btn" data-action="log-out">Log out</button></div>`;
   }
   function settingsView() {
@@ -593,7 +646,7 @@ Include every key vocabulary word, every formula, and at least 10 practice quest
 
   /* ---------- router ---------- */
   const views = {
-    auth: authView, welcome, dashboard, notes: notesList, 'notes-new': () => noteEditor(null), note: noteView, 'note-edit': noteEditor,
+    auth: authView, setup: setupView, welcome, dashboard, notes: notesList, 'notes-new': () => noteEditor(null), note: noteView, 'note-edit': noteEditor,
     exams: examsView, categories: categoriesView, category: categoryView, profile: settingsView, quiz: quizView
   };
   function route() {
@@ -605,7 +658,7 @@ Include every key vocabulary word, every formula, and at least 10 practice quest
     const A = window.MSG.Accounts;
     if (A && A.enabled && (!A.ready || !A.user || A.error)) name = 'auth';
     else if (A && A.enabled && !A.loaded) name = 'auth'; // shows "Loading…" while the account's notes arrive
-    else if (!Store.current() && name !== 'welcome') name = 'welcome';
+    else if (!Store.current() && name !== 'welcome' && name !== 'setup') name = 'welcome';
     const view = views[name] || notFound;
     $app.innerHTML = view(arg);
     document.querySelectorAll('[data-nav]').forEach((a) => a.classList.toggle('active', a.dataset.nav === name || (name.startsWith('note') && a.dataset.nav === 'notes') || (name === 'category' && a.dataset.nav === 'categories')));
@@ -652,6 +705,10 @@ Include every key vocabulary word, every formula, and at least 10 practice quest
       row.querySelector('textarea').focus();
     },
     'cancel-edit': () => route(),
+    'copy-text': (el) => {
+      const t = document.getElementById(el.dataset.target).textContent;
+      (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => toast('Copied'), () => toast('Select the text and copy it.'));
+    },
     'copy-prompt': () => { const t = document.getElementById('aiPrompt').textContent; (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => toast('Prompt copied! Paste it into your AI chat.'), () => toast('Select the prompt text and copy it.')); },
     'add-lib': (el) => { const c = Library.get(el.dataset.id); Store.addLibraryCards(c.id, c.concepts); toast(`Added ${c.concepts.length} cards to your review deck`); route(); },
     'remove-lib': (el) => { Store.removeLibraryCards(el.dataset.id); toast('Removed from your deck'); route(); },
@@ -690,6 +747,14 @@ Include every key vocabulary word, every formula, and at least 10 practice quest
     btn.disabled = false;
   }
   const forms = {
+    'check-config': (f) => {
+      const { cfg, problems } = checkConfig(f.cfg.value);
+      const out = document.getElementById('cfgResult');
+      if (problems.length) { out.innerHTML = '<div class="feedback bad">' + problems.map((p) => '<div>' + esc(p) + '</div>').join('') + '</div>'; return; }
+      const keys = ['apiKey', 'authDomain', 'projectId', 'storageBucket', 'messagingSenderId', 'appId'].filter((k) => cfg[k]);
+      const clean = 'const firebaseConfig = {\n' + keys.map((k) => '  ' + k + ': "' + cfg[k] + '"').join(',\n') + '\n};';
+      out.innerHTML = '<div class="feedback good"><div><b>✓ These settings look right</b> (project <code>' + esc(cfg.projectId) + '</code>). Copy them and send them to Claude.</div></div><pre class="ai-prompt" id="cfgClean">' + esc(clean) + '</pre><button class="btn small primary" type="button" data-action="copy-text" data-target="cfgClean">Copy settings</button>';
+    },
     login: (f) => authSubmit(f, () => window.MSG.Accounts.logIn(f.email.value.trim(), f.password.value)),
     signup: (f) => authSubmit(f, () => window.MSG.Accounts.signUp(f.name.value.trim(), f.email.value.trim(), f.password.value), 'Account created. Welcome!'),
     reset: (f) => authSubmit(f, () => window.MSG.Accounts.resetPassword(f.email.value.trim()), 'Reset link sent. Check your email (and your spam folder).'),

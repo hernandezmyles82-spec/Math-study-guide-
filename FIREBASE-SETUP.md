@@ -6,6 +6,8 @@ so it is there on any phone or computer where they log in. Each student sees onl
 
 It takes about 10 minutes. Firebase's free plan is enough for a class or a school.
 
+The website has the same guide built in, with copy buttons and a settings checker: open the site and go to **Profile → Set up student accounts** (or add `#setup` to the address).
+
 ## 1. Create a Firebase project
 
 1. Go to https://console.firebase.google.com and sign in with a Google account.
