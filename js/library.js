@@ -121,6 +121,33 @@ Vertical line test|A graph is a function if no vertical line crosses it more tha
 Even function|\(f(-x) = f(x)\); symmetric about the y-axis.
 Odd function|\(f(-x) = -f(x)\); symmetric about the origin.
 
+@alg2-ch2|Algebra 2: Functions, Slope & Lines|Algebra|📘|Algebra 2 sections 2.1–2.3: relations and functions, slope and rate of change, and graphing lines.
+Relation|A mapping, or pairing, of input values with output values.
+Domain|The set of input values (x-values) in a relation. List each value once, smallest to largest.
+Range|The set of output values (y-values) in a relation.
+Function|A relation for which each input has exactly one output. Outputs can repeat; inputs can't.
+Equation in two variables|An equation with an independent (input) variable and a dependent (output) variable that depends on the value of the input.
+Linear function|A function that can be written as \(y = mx + b\), where \(m\) and \(b\) are constants. Any \(x^2\), \(x^3\) or \(x\) in a denominator means it is not linear.
+Vertical line test|A relation is a function if and only if no vertical line intersects its graph at more than one point.
+Four ways to show a relation|Ordered pairs, a table, a graph, or a mapping diagram (inputs in one oval, outputs in another, an arrow from each input to its output).
+Graphing an equation in two variables|Make a table of values, plot enough points to see a pattern, then connect them with a line or curve.
+Slope|The ratio of vertical change (rise) to horizontal change (run): \(m = \frac{y_2 - y_1}{x_2 - x_1}\). Subtract in the same order on top and bottom.
+Positive slope|The line rises from left to right.
+Negative slope|The line falls from left to right.
+Zero slope|The line is horizontal (flat).
+Undefined slope|The line is vertical: \(x_2 - x_1 = 0\), and you can't divide by 0.
+Parallel lines|Two lines in a plane that do not intersect; their slopes are equal: \(m_1 = m_2\).
+Perpendicular lines|Two lines that intersect to form a right angle; their slopes are negative reciprocals: \(m_1 \cdot m_2 = -1\).
+Negative reciprocal|Flip the fraction and change the sign: \(\frac{3}{4} \to -\frac{4}{3}\), \(-5 \to \frac{1}{5}\).
+Rate of change|How much one quantity changes, on average, relative to the change in another quantity.
+Parent function|The most basic function in a family; for linear functions it is \(y = x\) (through the origin, slope 1).
+y-intercept|The y-coordinate of the point where a graph crosses the y-axis. Set \(x = 0\) to find it.
+x-intercept|The x-coordinate of the point where a graph crosses the x-axis. Set \(y = 0\) to find it.
+Slope-intercept form|\(y = mx + b\): \(m\) is the slope and \(b\) is the y-intercept. Plot \((0, b)\), then use the slope to find a second point.
+Standard form of a linear equation|\(Ax + By = C\), where \(A\) and \(B\) are not both zero. Graph it from its two intercepts.
+Horizontal line|\(y = c\): passes through \((0, c)\), slope 0.
+Vertical line|\(x = c\): passes through \((c, 0)\), slope undefined.
+
 @geometry-area|Area & Perimeter|Geometry & Trigonometry|📐|Areas and perimeters of rectangles, triangles, circles and more.
 Area of a rectangle|\(A = lw\)
 Area of a triangle|\(A = \frac{1}{2}bh\)

@@ -1,6 +1,6 @@
 # Math Study Guide
 
-A website that turns **any math notes** into quizzes. Paste notes from class, a study guide, or from ChatGPT, Claude or any other AI. The site saves them under your profile, builds study cards, quizzes you over time with spaced repetition, and helps you cram before a quiz or test. No notes? Practice any of **35 math categories**, from arithmetic all the way up to topology.
+A website that turns **any math notes** into quizzes. Paste notes from class, a study guide, or from ChatGPT, Claude or any other AI. The site saves them under your profile, builds study cards, quizzes you over time with spaced repetition, and helps you cram before a quiz or test. No notes? Practice any of **36 math categories**, from arithmetic all the way up to topology.
 
 ## Features
 
@@ -13,7 +13,7 @@ A website that turns **any math notes** into quizzes. Paste notes from class, a 
 - **Quizzes**: multiple choice, type the answer (understands `3/4`, `0.75`, `25pi`, `sqrt(2)`) and flashcards. Includes an "I was actually right" override.
 - **Spaced repetition / daily review**: cards you miss come back in 10 minutes; cards you know come back after 1, 3, 7+ days.
 - **Test Prep**: add a quiz or test date and choose which notes and topics are on it. Then take a **Quick quiz** (your weakest cards), a **Full practice test**, or use **🔥 Cram mode**, which repeats every miss until you get it right. Includes a countdown and a daily study plan.
-- **Math categories**: a reference sheet plus endless randomized practice problems (Easy / Medium / Hard) for Arithmetic, Fractions, Percents, Exponents, Ratios, Linear Equations, Lines & Slope, Systems, Polynomials, Quadratics, Logs, Functions, Area, Pythagorean Theorem, Angles, Volume, Unit Circle, Right-Triangle Trig, Sequences, Complex Numbers, Limits, Derivatives, Integrals, Series, Multivariable Calculus, Linear Algebra, Differential Equations, Statistics & Probability, Discrete Math, Number Theory, Abstract Algebra, Real Analysis, Complex Analysis and Topology.
+- **Math categories**: a reference sheet plus endless randomized practice problems (Easy / Medium / Hard) for Arithmetic, Fractions, Percents, Exponents, Ratios, Linear Equations, Algebra 2 (Functions, Slope & Lines), Lines & Slope, Systems, Polynomials, Quadratics, Logs, Functions, Area, Pythagorean Theorem, Angles, Volume, Unit Circle, Right-Triangle Trig, Sequences, Complex Numbers, Limits, Derivatives, Integrals, Series, Multivariable Calculus, Linear Algebra, Differential Equations, Statistics & Probability, Discrete Math, Number Theory, Abstract Algebra, Real Analysis, Complex Analysis and Topology.
 - **Weak spots** on the dashboard, study streaks, and **backup / import** to move your data between devices.
 
 ### Tip for AI notes

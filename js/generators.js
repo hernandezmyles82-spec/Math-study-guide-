@@ -229,6 +229,125 @@
     (d) => { const a = ri(-9, 9); return mc('What is the domain of ' + m(`f(x) = \\frac{1}{x ${sgn(-a)}}`) + '?', m(`x \\neq ${a}`), [m(`x > ${a}`), m(`x \\neq ${-a === a ? a + 1 : -a}`), m('\\text{all real numbers}')], 'Division by zero is not allowed.'); }
   ];
 
+  /* Algebra 2, sections 2.1–2.3 (relations & functions, slope, graphing lines), in the style of the class study guide. */
+  const pt = (x, y) => '(' + x + ', ' + y + ')';
+  const setTex = (vals) => '\\{' + Array.from(new Set(vals)).sort((a, b) => a - b).join(', ') + '\\}';
+  const slopeTex = (p, q) => frac(p, q);
+  function slopeLine(p, q, x0, y0, k) { return [[x0, y0], [x0 + q * k, y0 + p * k]]; }
+  const ALG2_GUIDE = [
+    () => mc('From your study guide (Checkpoint 1): is ' + m('(-5, 2), (-3, -1), (0, 0), (0, 2), (0, 5)') + ' a function?', 'No', ['Yes', 'No'], 'Not a function: the input 0 is mapped onto 0, 2 and 5.'),
+    () => mc('From your study guide (Example 1b): is the mapping ' + m('-2 \\to -2,\\ 1 \\to 0,\\ 2 \\to 2,\\ 2 \\to 3') + ' a function?', 'No', ['Yes', 'No'], 'Not a function: the input 2 is mapped onto both 2 and 3.'),
+    () => mc('From your study guide (Example 1a): is the mapping ' + m('-2 \\to 1,\\ -1 \\to 0,\\ 3 \\to 0,\\ 6 \\to 4') + ' a function?', 'Yes', ['Yes', 'No'], 'A function: each input maps to exactly one output. Two inputs sharing the output 0 is allowed.'),
+    () => num('From your study guide (Example 4a): ' + m('f(x) = 6x + 10') + '. Find ' + m('f(-3)') + '.', -8, m('6(-3) + 10 = -18 + 10 = -8')),
+    () => num('From your study guide (Example 4b): ' + m('g(x) = 2x^2 + 4x - 1') + '. Find ' + m('g(-3)') + '.', 5, m('2(9) - 12 - 1 = 5') + '. Square the −3 first.'),
+    () => num('From your study guide (Checkpoint 4): ' + m('f(x) = 2x^3 + 6 - x') + '. Find ' + m('f(-1)') + '.', 5, m('2(-1)^3 + 6 - (-1) = -2 + 6 + 1 = 5')),
+    () => num('From your study guide (Example 1): find the slope of the line through (1, 3) and (6, 7). (fraction ok)', 4 / 5, m('m = \\frac{7 - 3}{6 - 1} = \\frac{4}{5}'), { display: '4/5' }),
+    () => num('From your study guide (Checkpoint 1): find the slope of the line through (4, 2) and (7, 9). (fraction ok)', 7 / 3, m('m = \\frac{9 - 2}{7 - 4} = \\frac{7}{3}'), { display: '7/3' }),
+    () => mc('From your study guide (Example 2b): the line through (2, −1) and (2, 2)…', 'Is vertical', ['Rises', 'Falls', 'Is horizontal', 'Is vertical'], m('m = \\frac{3}{0}') + ' is undefined, so the line is vertical.'),
+    () => mc('From your study guide (Example 3): line 1 goes through (−3, −1) and (2, 5); line 2 through (3, −4) and (−3, 1). The lines are…', 'Perpendicular', ['Parallel', 'Perpendicular', 'Neither'], m('m_1 = \\frac{6}{5},\\ m_2 = -\\frac{5}{6}') + ', and their product is −1.'),
+    () => num('From your study guide (Example 2): find the x-intercept of ' + m('2x + 3y = 12') + '.', 6, 'Let y = 0: 2x = 12, so x = 6.'),
+    () => num('From your study guide (Checkpoint 4): find the x-intercept of ' + m('-5x + 3y = 15') + '.', -3, 'Let y = 0: −5x = 15, so x = −3.'),
+    () => mc('From your study guide (Quick self-check): what is the domain of ' + m('\\{(-1, 0), (0, 2), (3, 2)\\}') + '?', m('\\{-1, 0, 3\\}'), [m('\\{0, 2\\}'), m('\\{-1, 0, 2, 3\\}'), m('\\{0, 2, 2\\}')], 'Domain = the x-values, each listed once.'),
+    () => num('From your practice papers (#14): what is the slope of ' + m('y = -\\tfrac{1}{4}x - 1') + '? (fraction ok)', -1 / 4, 'In y = mx + b, m is the slope.', { display: '-1/4' }),
+    () => num('From your practice papers (#11): where does ' + m('y = 2x - 5') + ' cross the y-axis? (the y-value)', -5, 'b = −5, so it crosses at (0, −5).')
+  ];
+  G['alg2-ch2'] = [
+    (d) => {
+      const n = ri(3, 4 + d), xs = shuffle([-6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6]).slice(0, n);
+      const pairs = xs.map((x) => [x, ri(-6, 6)]);
+      const notF = Math.random() < 0.5;
+      let rep = null;
+      if (notF) { const i = ri(0, n - 1); rep = pairs[i][0]; pairs.push([rep, pairs[i][1] + nz(-4, 4)]); }
+      return mc('Is this relation a function? ' + m(shuffle(pairs).map((q) => pt(q[0], q[1])).join(',\\ ')), notF ? 'No' : 'Yes', ['Yes', 'No'],
+        notF ? `Not a function: the input ${rep} is mapped onto two different outputs.` : 'A function: no input (x-value) repeats with a different output. Outputs may repeat.');
+    },
+    (d) => {
+      const xs = shuffle([-5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5]).slice(0, ri(3, 5));
+      const pairs = xs.map((x) => [x, ri(-5, 6)]);
+      const ask = pick(['domain', 'range']);
+      const X = pairs.map((q) => q[0]), Y = pairs.map((q) => q[1]);
+      const right = ask === 'domain' ? X : Y, other = ask === 'domain' ? Y : X;
+      return mc(`What is the ${ask} of ` + m('\\{' + pairs.map((q) => pt(q[0], q[1])).join(', ') + '\\}') + '?', m(setTex(right)),
+        [m(setTex(other)), m(setTex(X.concat(Y))), m(setTex(right.slice(1).concat([right[0] + 7])))],
+        ask === 'domain' ? 'Domain = the inputs (x-values), each listed once.' : 'Range = the outputs (y-values), each listed once.');
+    },
+    (d) => {
+      const x = ri(-3, 3);
+      const kind = d === 1 ? 'lin' : pick(['lin', 'quad', 'cube']);
+      if (kind === 'lin') { const a = nz(-9, 9), b = ri(-12, 12); return num(`Evaluate ${m('f(x) = ' + poly([a, b]))} when x = ${x}.`, a * x + b, 'Substitute ' + x + ' for x: ' + m(`${a}(${x}) ${sgn(b)}`)); }
+      if (kind === 'quad') { const a = nz(-3, 3), b = ri(-5, 5), c = ri(-6, 6); return num(`Evaluate ${m('g(x) = ' + poly([a, b, c]))} when x = ${x}.`, a * x * x + b * x + c, 'Square ' + paren(x) + ' first: ' + m(`${paren(x)}^2 = ${x * x}`) + '.'); }
+      const a = nz(-2, 2), c = ri(-6, 6); return num(`Evaluate ${m('h(x) = ' + poly([a, 0, 0, c]))} when x = ${x}.`, a * x * x * x + c, m(`${paren(x)}^3 = ${x * x * x}`) + ' (a negative number cubed stays negative).');
+    },
+    (d) => {
+      const a = nz(-7, 7), b = nz(-9, 9), k = ri(2, 5);
+      const items = [
+        ['f(x) = ' + poly([a, b]), true], ['f(x) = ' + b + ' ' + (a < 0 ? '- ' + Math.abs(a) : '+ ' + a) + 'x', true], ['f(x) = ' + b, true], ['f(x) = \\frac{x}{' + k + '} ' + sgn(b), true],
+        ['f(x) = ' + poly([a, 0, b]), false], ['f(x) = ' + poly([a, 0, 0, b]), false], ['f(x) = \\frac{' + k + '}{x} ' + sgn(b), false], ['f(x) = \\sqrt{x} ' + sgn(b), false]
+      ];
+      const [f, lin] = pick(items);
+      return mc('Is ' + m(f) + ' a linear function?', lin ? 'Linear' : 'Not linear', ['Linear', 'Not linear'],
+        lin ? 'It can be written as f(x) = mx + b (a constant is mx + b with m = 0).' : 'It has an x², x³, √x or x in a denominator, so it is not of the form mx + b.');
+    },
+    (d) => {
+      const type = pick(['Rises', 'Falls', 'Is horizontal', 'Is vertical']);
+      const x1 = ri(-6, 6), y1 = ri(-6, 6);
+      let x2 = x1 + ri(1, 6), y2;
+      if (type === 'Rises') y2 = y1 + ri(1, 6); else if (type === 'Falls') y2 = y1 - ri(1, 6); else if (type === 'Is horizontal') y2 = y1; else { x2 = x1; y2 = y1 + nz(-6, 6); }
+      const [a, b] = Math.random() < 0.5 ? [[x1, y1], [x2, y2]] : [[x2, y2], [x1, y1]];
+      const top = b[1] - a[1], bot = b[0] - a[0];
+      return mc(`Without graphing: the line through ${pt(a[0], a[1])} and ${pt(b[0], b[1])}…`, type, ['Rises', 'Falls', 'Is horizontal', 'Is vertical'],
+        m(`m = \\frac{${b[1]} - ${paren(a[1])}}{${b[0]} - ${paren(a[0])}} = ${bot === 0 ? '\\frac{' + top + '}{0}' : frac(top, bot)}`) + (bot === 0 ? ': undefined, so vertical.' : top === 0 ? ': zero, so horizontal.' : top * bot > 0 ? ': positive, so it rises.' : ': negative, so it falls.'));
+    },
+    (d) => {
+      const slopes = [[1, 1], [2, 1], [1, 2], [3, 2], [-2, 3], [-1, 1], [4, 1], [-3, 1], [3, 4], [-1, 2]];
+      let [p, q] = pick(slopes);
+      const type = pick(['Parallel', 'Perpendicular', 'Neither']);
+      let p2, q2;
+      if (type === 'Parallel') [p2, q2] = [p, q];
+      else if (type === 'Perpendicular') [p2, q2] = q * Math.sign(p) > 0 ? [-q, Math.abs(p)] : [q, Math.abs(p)];
+      else { do { [p2, q2] = pick(slopes); } while (p2 * q === p * q2 || p2 * p === -q2 * q); }
+      if (type === 'Perpendicular' && p < 0) [p2, q2] = [q, -p];
+      const L1 = slopeLine(p, q, ri(-5, 3), ri(-5, 3), ri(1, 2)), L2 = slopeLine(p2, q2, ri(-5, 3), ri(-5, 3), ri(1, 2));
+      const m1 = frac(p, q), m2 = frac(p2, q2);
+      return mc(`Line 1 goes through ${pt(L1[0][0], L1[0][1])} and ${pt(L1[1][0], L1[1][1])}; line 2 through ${pt(L2[0][0], L2[0][1])} and ${pt(L2[1][0], L2[1][1])}. The lines are…`, type, ['Parallel', 'Perpendicular', 'Neither'],
+        m(`m_1 = ${m1},\\ m_2 = ${m2}`) + (type === 'Parallel' ? ': the same slope.' : type === 'Perpendicular' ? ': their product is −1.' : ': not equal, and their product is not −1.'));
+    },
+    (d) => {
+      const A = nz(-6, 6), B = nz(-6, 6), k = nz(-2, 2), C = A * B * k;
+      const ask = pick(['x', 'y']);
+      return num(`Find the ${ask}-intercept of ${m(linXY(A, B) + ' = ' + C)}.`, ask === 'x' ? B * k : A * k,
+        ask === 'x' ? `Let y = 0: ${A}x = ${C}, so x = ${B * k}.` : `Let x = 0: ${B}y = ${C}, so y = ${A * k}.`);
+    },
+    (d) => {
+      const [p, q] = pick([[2, 1], [-3, 2], [1, 3], [-1, 1], [4, 3], [-2, 5], [3, 1], [-1, 4]]), b = ri(-6, 6);
+      const ask = pick(['slope', 'y-intercept']);
+      const eq = 'y = ' + (q === 1 ? (p === 1 ? '' : p === -1 ? '-' : p) : frac(p, q)) + 'x ' + (b ? sgn(b) : '');
+      return num(`What is the ${ask} of ${m(eq.trim())}? (fraction ok)`, ask === 'slope' ? p / q : b, 'In y = mx + b, m is the slope and b is the y-intercept.', { display: ask === 'slope' ? fmtNum(p / q) : String(b) });
+    },
+    (d) => {
+      const [p, q] = pick([[-3, 2], [2, 1], [1, 2], [-1, 3], [4, 3], [-2, 1], [3, 4]]), b = ri(-5, 5);
+      const eq = 'y = ' + (q === 1 ? p : frac(p, q)) + 'x ' + (b ? sgn(b) : '');
+      return mc(`To graph ${m(eq.trim())}, start at (0, ${b}). Which is a second point on the line?`, m(pt(q, b + p)),
+        [m(pt(p, b + q)), m(pt(q, b - p)), m(pt(-q, b + p)), m(pt(b, q))],
+        `The slope ${m(slopeTex(p, q))} means go ${p < 0 ? 'down' : 'up'} ${Math.abs(p)} and right ${q}.`);
+    },
+    (d) => {
+      const c = nz(-6, 6), horiz = Math.random() < 0.5;
+      const eq = (horiz ? 'y' : 'x') + ' = ' + c;
+      return mc('Which describes the graph of ' + m(eq) + '?', horiz ? `Horizontal line through (0, ${c})` : `Vertical line through (${c}, 0)`,
+        [`Horizontal line through (0, ${c})`, `Vertical line through (${c}, 0)`, `Horizontal line through (${c}, 0)`, `Vertical line through (0, ${c})`],
+        horiz ? 'y = a number is a flat line; every point has that y-value. Its slope is 0.' : 'x = a number is a standing-up line; every point has that x-value. Its slope is undefined.');
+    },
+    (d) => {
+      const items = [['A U-shaped parabola that opens up', 'Yes'], ['A sideways parabola that opens to the right', 'No'], ['An upside-down V', 'Yes'], ['A circle', 'No'],
+        ['An S-shaped curve that keeps rising from left to right', 'Yes'], ['A slanted straight line', 'Yes'], ['A vertical straight line', 'No'], ['Scattered points with two dots stacked in the same column', 'No'], ['Scattered points, each with a different x-value', 'Yes']];
+      const [g, a] = pick(items);
+      return mc(`Vertical line test: is this graph a function? ${g}.`, a, ['Yes', 'No'], a === 'Yes' ? 'Every vertical line crosses it at most once.' : 'Some vertical line crosses it at 2 or more points.');
+    },
+    () => pick(ALG2_GUIDE)(),
+    () => pick(ALG2_GUIDE)()
+  ];
+
   G['geometry-area'] = [
     (d) => { const l = ri(2, R(d, 12, 25, 60)), w = ri(2, R(d, 12, 25, 60)); return num(`Area of a rectangle ${l} by ${w}?`, l * w, m('A = lw')); },
     (d) => { const l = ri(2, 30), w = ri(2, 30); return num(`Perimeter of a rectangle ${l} by ${w}?`, 2 * (l + w), m('P = 2l + 2w')); },
