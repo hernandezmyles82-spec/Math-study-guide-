@@ -54,4 +54,4 @@ def main(out):
     print('wrote %s (%d KB)' % (out, os.path.getsize(out) // 1024))
 
 if __name__ == '__main__':
-    main(sys.argv[1] if len(sys.argv) > 1 else 'math-study-guide.html')
+    main(sys.argv[1] if len(sys.argv) > 1 else 'universal-study-guide.html')

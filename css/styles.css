@@ -326,3 +326,14 @@ details summary { cursor: pointer; font-weight: 650; }
 .step-num { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: var(--primary); color: var(--primary-ink); font-weight: 800; }
 .setup-step .btn { align-self: flex-start; }
 .setup-step .ai-prompt { margin: 0; }
+
+/* ---------- subjects ---------- */
+.subject-chips { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: .5rem; }
+.chip-btn { border: 1px solid var(--border); background: var(--surface); color: var(--text); font: inherit; font-weight: 600; font-size: .9rem; padding: .4rem .85rem; border-radius: 999px; cursor: pointer; }
+.chip-btn:hover { border-color: var(--primary); }
+.chip-btn.active { background: var(--primary); border-color: var(--primary); color: var(--primary-ink); }
+.chip-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.subject-head { margin: 1.75rem 0 .25rem; font-size: 1.35rem; }
+h3.level { font-size: .95rem; margin: 1rem 0 .6rem; }
+.group-subject { font-weight: 700; margin-top: .75rem; }
+.group-subject:first-child { margin-top: 0; }

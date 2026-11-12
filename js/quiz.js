@@ -100,7 +100,6 @@
     const p = Store.current();
     let pool = p ? p.cards.slice() : [];
     (extraCats || []).forEach((id) => { pool = pool.concat(conceptCards(id).filter((k) => !pool.some((c) => c.id === k.id))); });
-    if (pool.length < 8) pool = pool.concat(conceptCards('derivatives'), conceptCards('quadratics'));
     return pool;
   }
 
@@ -114,9 +113,11 @@
 
   function forCategory(catId, n, d) {
     const concepts = U.shuffle(conceptCards(catId));
-    const level = (Library.get(catId) || {}).level;
+    // Wrong answer choices come from this topic first, then from the same subject (never from another subject).
+    const cat = Library.get(catId) || {};
     let pool = concepts.slice();
-    Library.categories.filter((c) => c.level === level && c.id !== catId).forEach((c) => { pool = pool.concat(conceptCards(c.id)); });
+    Library.categories.filter((c) => c.subject === cat.subject && c.level === cat.level && c.id !== catId).forEach((c) => { pool = pool.concat(conceptCards(c.id)); });
+    if (pool.length < 12) Library.categories.filter((c) => c.subject === cat.subject && c.level !== cat.level).forEach((c) => { pool = pool.concat(conceptCards(c.id)); });
     const hasGen = Generators.has(catId);
     const out = [];
     let ci = 0;
@@ -171,7 +172,8 @@
   }
 
   function forNote(noteId) {
-    return fromCards(U.shuffle(Store.cardsForNote(noteId)), profilePool());
+    const note = Store.note(noteId);
+    return fromCards(U.shuffle(Store.cardsForNote(noteId)), profilePool(note && note.categoryId ? [note.categoryId] : []));
   }
 
   function check(q, response) {

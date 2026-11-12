@@ -49,6 +49,36 @@
     return dollars % 2 === 1 || opens > 0;
   }
 
+  /* First run of capitalized words in a sentence, allowing small joining words and Roman numerals
+     ("Treaty of Versailles", "World War II"). A single capitalized word that only starts the sentence,
+     or a common word like "The", does not count. */
+  const NOT_NAMES = new Set(['The', 'A', 'An', 'In', 'On', 'At', 'It', 'Its', 'This', 'That', 'These', 'Those', 'He', 'She', 'They', 'We', 'I', 'You', 'His', 'Her', 'Their', 'Our', 'My',
+    'When', 'After', 'Before', 'During', 'Because', 'If', 'As', 'By', 'For', 'From', 'To', 'With', 'Without', 'And', 'But', 'Or', 'So', 'Then', 'There', 'Here', 'What', 'Why', 'How', 'Who', 'Each', 'Every', 'Most', 'Many', 'Some', 'All', 'One', 'Also', 'Both']);
+  const JOINERS = new Set(['of', 'the', 'and', 'de', 'del', 'la', 'von', 'van', 'du', 'des', 'for', 'on']);
+  function properNoun(text) {
+    const re = /[A-Za-z][A-Za-z'’.-]*/g;
+    const toks = [];
+    let mm;
+    while ((mm = re.exec(text))) toks.push({ w: mm[0].replace(/[.'’-]+$/, ''), i: mm.index });
+    const cap = (w) => /^[A-Z][a-z'’.-]*[A-Za-z]$|^[A-Z]{2,}$|^[A-Z]$/.test(w) && !NOT_NAMES.has(w);
+    const roman = (w) => /^[IVX]+$/.test(w);
+    for (let k = 0; k < toks.length; k++) {
+      if (!cap(toks[k].w) || roman(toks[k].w)) continue;
+      let end = k;
+      for (let j = k + 1; j < toks.length; j++) {
+        if (text.slice(toks[j - 1].i + toks[j - 1].w.length, toks[j].i).trim() !== '') break; // punctuation between words ends the name
+        if (cap(toks[j].w) || roman(toks[j].w)) end = j;
+        else if (JOINERS.has(toks[j].w) && j + 1 < toks.length && cap(toks[j + 1].w)) continue;
+        else break;
+      }
+      const startsSentence = k === 0 || /[.!?:]\s*$/.test(text.slice(0, toks[k].i));
+      if (startsSentence && end === k) continue; // a lone capital that just starts the sentence
+      const from = toks[k].i, to = toks[end].i + toks[end].w.length;
+      return { text: text.slice(from, to), idx: from };
+    }
+    return null;
+  }
+
   function validTerm(t) {
     const clean = stripMd(t).replace(/[:\-–—]+$/, '').trim();
     if (!clean || clean.length > 70) return false;
@@ -269,9 +299,17 @@
         let blank = null;
         const bm = s.match(/\*\*(.+?)\*\*/);
         if (bm && words(bm[1]) <= 5) blank = { text: stripMd(bm[1]), src: stripMd(s), idx: stripMd(s).indexOf(stripMd(bm[1])) };
+        if (!blank) { // a year: history notes ("... in 1776")
+          const ym = /(^|[\s(])((?:1[0-9]|20)\d{2})(?=[\s,.;)]|$)/.exec(plain);
+          if (ym && !hidesLatex(plain, ym.index)) blank = { text: ym[2], src: plain, idx: ym.index + ym[1].length };
+        }
         if (!blank) {
           const vm = VOCAB_RE.exec(plain);
           if (vm && !hidesLatex(plain, vm.index)) blank = { text: vm[1], src: plain, idx: vm.index };
+        }
+        if (!blank) { // a name: person, place, event, document ("Thomas Jefferson", "Treaty of Versailles")
+          const pn = properNoun(plain);
+          if (pn && !hidesLatex(plain, pn.idx)) blank = { text: pn.text, src: plain, idx: pn.idx };
         }
         if (!blank) {
           const nm = /(^|[\s(])(-?\d+(?:\.\d+)?%?)(?=[\s,.;)]|$)/.exec(plain);

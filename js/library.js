@@ -1,6 +1,9 @@
-/* Built-in math library: categories from beginner to advanced, each with a reference sheet of key
-   concepts/formulas. Practice problem generators live in generators.js (same category ids).
-   Format below:  @id|Name|Level|Icon|Short description   followed by   Term|Definition   lines. */
+/* Built-in study library, grouped by subject. This file holds Math (beginner to advanced);
+   js/library-subjects.js adds the other subjects through Library.addSubject().
+   Each category has a reference sheet of key concepts; practice-question generators live in
+   generators.js and generators-subjects.js (same category ids).
+   Format:  @id|Name|Level|Icon|Short description   followed by   Term|Definition   lines.
+   Card ids are positional (lib:<category>:<index>): append new concepts at the END of a category. */
 (function (root) {
   'use strict';
 
@@ -369,24 +372,43 @@ Euler characteristic|\(\chi = V - E + F\); for a closed orientable surface of ge
 `;
 
   const categories = [];
-  let cur = null;
-  RAW.split('\n').forEach((line) => {
-    line = line.trim();
-    if (!line) return;
-    if (line[0] === '@') {
-      const [id, name, level, icon, blurb] = line.slice(1).split('|');
-      cur = { id, name, level, icon, blurb, concepts: [] };
-      categories.push(cur);
-    } else if (cur) {
-      const k = line.indexOf('|');
-      cur.concepts.push({ term: line.slice(0, k).trim(), def: line.slice(k + 1).trim(), topic: cur.name });
+  const SUBJECTS = [];
+
+  function parse(subject, raw) {
+    let cur = null;
+    raw.split('\n').forEach((line) => {
+      line = line.trim();
+      if (!line) return;
+      if (line[0] === '@') {
+        const [id, name, level, icon, blurb] = line.slice(1).split('|');
+        cur = { id, name, level, icon, blurb, subject, concepts: [] };
+        categories.push(cur);
+      } else if (cur) {
+        const k = line.indexOf('|');
+        cur.concepts.push({ term: line.slice(0, k).trim(), def: line.slice(k + 1).trim(), topic: cur.name });
+      }
+    });
+  }
+
+  const Library = {
+    SUBJECTS,
+    categories,
+    get(id) { return categories.find((c) => c.id === id); },
+    /* Register a subject: its display name, icon, the order of its levels, and its categories. */
+    addSubject(name, icon, levels, raw, blurb) {
+      SUBJECTS.push({ name, icon, levels, blurb: blurb || '' });
+      parse(name, raw);
+    },
+    /* Subjects in order, each with its levels in order and the categories in each level. */
+    groups() {
+      return SUBJECTS.map((s) => ({
+        subject: s.name, icon: s.icon, blurb: s.blurb,
+        levels: s.levels.map((level) => ({ level, cats: categories.filter((c) => c.subject === s.name && c.level === level) })).filter((l) => l.cats.length)
+      }));
     }
-  });
+  };
+  Library.addSubject('Math', '🔢', LEVELS, RAW, 'Arithmetic through calculus and college math');
 
   root.MSG = root.MSG || {};
-  root.MSG.Library = {
-    LEVELS,
-    categories,
-    get(id) { return categories.find((c) => c.id === id); }
-  };
+  root.MSG.Library = Library;
 })(typeof window !== 'undefined' ? window : globalThis);

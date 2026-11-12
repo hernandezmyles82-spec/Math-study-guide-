@@ -7,10 +7,13 @@
   let session = null; // active quiz
 
   /* ---------- formatting ---------- */
-  const fmt = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
+  // A dollar amount ("$5", "$1,200.50") is shown as plain text, not as the start of a math formula:
+  // putting its "$" in its own element keeps the math renderer from pairing it with another "$".
+  const money = (html) => html.replace(/\$(?=\d[\d,]*(?:\.\d+)?(?![\d.,]*[A-Za-z^_\\{=+*\/$-]))/g, '<span class="cur">$</span>');
+  const fmt = (s) => money(esc(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>'));
   function md(text) {
     const lines = String(text || '').replace(/\r\n?/g, '\n').split('\n');
-    const inline = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/`([^`]+)`/g, '<code>$1</code>');
+    const inline = (s) => money(esc(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/`([^`]+)`/g, '<code>$1</code>'));
     let html = '', list = null, table = [];
     const flushList = () => { if (list) { html += '</' + list + '>'; list = null; } };
     const flushTable = () => {
@@ -126,7 +129,7 @@
     }
     return `
       <section class="hero">
-        <h1>Turn your math notes into quizzes.</h1>
+        <h1>Turn your notes into quizzes.</h1>
         <p class="lead">Paste notes from class, a study guide, or any AI chat. We turn them into study cards, quiz you over time, and help you cram before a test. Make a free account and everything you add is saved, on any device.</p>
       </section>
       <div class="auth card">${tabs}${form}</div>`;
@@ -136,8 +139,8 @@
     const profiles = Store.profiles();
     return `
       <section class="hero">
-        <h1>Turn your math notes into quizzes.</h1>
-        <p class="lead">Paste notes from class, from a study guide, or from ChatGPT, Claude or any AI. We turn them into study cards, quiz you over time, and help you cram the night before a test. No notes? Practice any of ${Library.categories.length} math topics from arithmetic to topology.</p>
+        <h1>Turn your notes into quizzes.</h1>
+        <p class="lead">Paste notes from class, from a study guide, or from ChatGPT, Claude or any AI. We turn them into study cards, quiz you over time, and help you cram the night before a test. No notes? Practice any of ${Library.categories.length} built-in topics: math, science, history, English, languages and computer science.</p>
         <div class="steps">
           <div class="step"><b>1</b><span>Paste or upload your notes</span></div>
           <div class="step"><b>2</b><span>We build study cards automatically</span></div>
@@ -190,7 +193,7 @@
       <div class="grid two">
         <div class="card highlight">
           <h2>📅 Daily review</h2>
-          ${st.cards === 0 ? `<p>You don't have any study cards yet. Add your notes and we'll build them for you, or pick a topic from the math categories.</p>
+          ${st.cards === 0 ? `<p>You don't have any study cards yet. Add your notes and we'll build them for you, or pick a topic from the study categories.</p>
             <div class="row"><a class="btn primary" href="#notes-new">Add my notes</a><a class="btn" href="#categories">Browse categories</a></div>`
           : st.due > 0 ? `<p>You have <b>${plural(st.due, 'card')}</b> ready for review. Cards you miss come back sooner, and cards you know come back later.</p>
             <div class="row"><button class="btn primary" data-action="start-review">Start review (${Math.min(st.due, p.settings.dailyLimit)})</button><button class="btn" data-action="start-weak">Practice weakest</button></div>`
@@ -243,11 +246,11 @@
       : `<div class="card empty"><p>📄 No notes yet.</p><p class="muted">Paste in notes from class, a study guide, or an AI chat and we'll turn them into quizzes.</p><a class="btn primary" href="#notes-new">Add my first notes</a></div>`}`;
   }
 
-  const AI_PROMPT = `Turn my math study guide into study notes I can paste into a quiz website. Use exactly this format:
+  const AI_PROMPT = `Turn my study guide into study notes I can paste into a quiz website. Use exactly this format:
 
 ## Topic name
 - Term: definition
-- Formula name: formula (write math in LaTeX, like $x^2$ or $\\frac{a}{b}$)
+- Formula or rule name: the formula or rule (for math, write it in LaTeX, like $x^2$ or $\\frac{a}{b}$)
 
 Q: a practice question
 A: the answer
@@ -259,23 +262,23 @@ Answer: the final answer
 Include every key vocabulary word, every formula, and at least 10 practice questions with short answers.`;
 
   function categoryOptions(selected) {
-    return '<option value="">— none —</option>' + Library.LEVELS.map((lv) => `<optgroup label="${esc(lv)}">${Library.categories.filter((c) => c.level === lv).map((c) => `<option value="${c.id}" ${c.id === selected ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</optgroup>`).join('');
+    return '<option value="">— none —</option>' + Library.groups().map((g) => g.levels.map((l) => `<optgroup label="${esc(g.subject === l.level ? g.subject : g.subject + ': ' + l.level)}">${l.cats.map((c) => `<option value="${c.id}" ${c.id === selected ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</optgroup>`).join('')).join('');
   }
 
   function noteEditor(id) {
     const n = id ? Store.note(id) : null;
     if (id && !n) return notFound();
     return `
-      <div class="page-head"><div><h1>${n ? 'Edit notes' : 'Add notes'}</h1><p class="muted">Paste notes from anywhere, or upload a .txt / .md file. Math in LaTeX ($x^2$) is supported.</p></div></div>
+      <div class="page-head"><div><h1>${n ? 'Edit notes' : 'Add notes'}</h1><p class="muted">Paste notes from anywhere, or upload a .txt / .md file. Works for any subject. Math in LaTeX ($x^2$) is supported.</p></div></div>
       <div class="grid editor">
         <form class="card stack" data-form="save-note" data-id="${n ? n.id : ''}">
           <div class="grid two tight">
-            <label>Title<input name="title" required maxlength="100" value="${n ? esc(n.title) : ''}" placeholder="e.g. Unit 4: Derivatives"></label>
-            <label>Class (optional)<input name="course" maxlength="60" value="${n ? esc(n.course) : ''}" placeholder="e.g. AP Calculus AB"></label>
+            <label>Title<input name="title" required maxlength="100" value="${n ? esc(n.title) : ''}" placeholder="e.g. Unit 3: The Cell"></label>
+            <label>Class (optional)<input name="course" maxlength="60" value="${n ? esc(n.course) : ''}" placeholder="e.g. Biology, AP U.S. History, Spanish 2"></label>
           </div>
-          <label>Math topic (optional; adds practice problems to your quizzes)<select name="categoryId">${categoryOptions(n ? n.categoryId : '')}</select></label>
+          <label>Subject topic (optional; adds practice questions to your quizzes)<select name="categoryId">${categoryOptions(n ? n.categoryId : '')}</select></label>
           <label>Your notes
-            <textarea name="content" rows="18" required data-input="preview-notes" placeholder="Paste your notes here...&#10;&#10;## Derivatives&#10;- Derivative: the instantaneous rate of change&#10;- Power Rule: $\\frac{d}{dx}x^n = nx^{n-1}$&#10;&#10;Q: What is the derivative of x^3?&#10;A: 3x^2">${n ? esc(n.content) : ''}</textarea>
+            <textarea name="content" rows="18" required data-input="preview-notes" placeholder="Paste your notes here...&#10;&#10;## The Cell&#10;- Mitochondria: releases energy from food for the cell&#10;- Osmosis: the diffusion of water across a membrane&#10;&#10;Q: What does the nucleus do?&#10;A: Controls the cell and holds its DNA">${n ? esc(n.content) : ''}</textarea>
           </label>
           <div class="row">
             <label class="btn">📎 Upload .txt / .md<input type="file" accept=".txt,.md,.markdown,text/plain,text/markdown" data-change="load-file" hidden></label>
@@ -370,8 +373,8 @@ Include every key vocabulary word, every formula, and at least 10 practice quest
           <fieldset><legend>Which of my notes are on it?</legend>
             ${p.notes.length ? p.notes.map((n) => `<label class="check"><input type="checkbox" name="noteIds" value="${n.id}"> ${esc(n.title)}</label>`).join('') : '<p class="muted small">No notes yet. <a href="#notes-new">Add notes</a> or choose topics below.</p>'}
           </fieldset>
-          <fieldset><legend>Math topics on it (adds practice problems)</legend>
-            <div class="scroll-box">${Library.LEVELS.map((lv) => `<div class="muted small group-label">${esc(lv)}</div>` + Library.categories.filter((c) => c.level === lv).map((c) => `<label class="check"><input type="checkbox" name="categoryIds" value="${c.id}"> ${c.icon} ${esc(c.name)}</label>`).join('')).join('')}</div>
+          <fieldset><legend>Topics on it (adds practice questions)</legend>
+            <div class="scroll-box">${Library.groups().map((g) => `<div class="group-subject">${g.icon} ${esc(g.subject)}</div>` + g.levels.map((l) => (g.subject === l.level ? '' : `<div class="muted small group-label">${esc(l.level)}</div>`) + l.cats.map((c) => `<label class="check"><input type="checkbox" name="categoryIds" value="${c.id}"> ${c.icon} ${esc(c.name)}</label>`).join('')).join('')).join('')}</div>
           </fieldset>
           <button class="btn primary" type="submit">Add test</button>
         </form>
@@ -403,17 +406,26 @@ Include every key vocabulary word, every formula, and at least 10 practice quest
   function categoriesView() {
     const p = Store.current();
     const q = (sessionStorageGet('catFilter') || '').toLowerCase();
+    const groups = Library.groups();
+    let subj = sessionStorageGet('subject') || 'all';
+    if (subj !== 'all' && !groups.some((g) => g.subject === subj)) subj = 'all';
+    const chips = `<div class="subject-chips" role="group" aria-label="Subject">${[{ subject: 'all', icon: '✨' }].concat(groups).map((g) => `<button class="chip-btn ${subj === g.subject ? 'active' : ''}" data-action="pick-subject" data-subject="${esc(g.subject)}" aria-pressed="${subj === g.subject}">${g.icon} ${g.subject === 'all' ? 'All subjects' : esc(g.subject)}</button>`).join('')}</div>`;
+    const match = (c) => !q || (c.name + ' ' + c.blurb + ' ' + c.subject + ' ' + c.concepts.map((k) => k.term).join(' ')).toLowerCase().includes(q);
+    const total = Library.categories.length;
+    const body = groups.filter((g) => subj === 'all' || g.subject === subj).map((g) => {
+      const levels = g.levels.map((l) => ({ level: l.level, cats: l.cats.filter(match) })).filter((l) => l.cats.length);
+      if (!levels.length) return '';
+      return `<h2 class="subject-head">${g.icon} ${esc(g.subject)}</h2>` + levels.map((l) => (l.level === g.subject ? '' : `<h3 class="level">${esc(l.level)}</h3>`) + `<div class="grid three">${l.cats.map(catCard).join('')}</div>`).join('');
+    }).join('');
     return `
-      <div class="page-head"><div><h1>Math Categories</h1><p class="muted">No notes needed: practice problems and reference sheets for every level of math.</p></div>
+      <div class="page-head"><div><h1>Study Categories</h1><p class="muted">No notes needed: ${total} topics across ${groups.length} subjects, each with a reference sheet and practice questions.</p></div>
       <input class="search" type="search" placeholder="Search topics…" value="${esc(q)}" data-input="filter-cats" aria-label="Search topics"></div>
-      ${Library.LEVELS.map((lv) => {
-        const cats = Library.categories.filter((c) => c.level === lv && (!q || (c.name + ' ' + c.blurb + ' ' + c.concepts.map((k) => k.term).join(' ')).toLowerCase().includes(q)));
-        if (!cats.length) return '';
-        return `<h2 class="level">${esc(lv)}</h2><div class="grid three">${cats.map((c) => {
-          const s = p.catStats[c.id];
+      ${chips}
+      ${body || '<p class="muted">No topics match your search.</p>'}`;
+    function catCard(c) {
+      const s = p.catStats[c.id];
           return `<a class="card cat-card" href="#category--${c.id}"><span class="cat-icon">${c.icon}</span><span><b>${esc(c.name)}</b><span class="muted small">${esc(c.blurb)}</span>${s ? `<span class="small score ${pct(s.right, s.right + s.wrong) >= 80 ? 'good' : 'ok'}">${pct(s.right, s.right + s.wrong)}% · ${s.right + s.wrong} answered</span>` : ''}</span></a>`;
-        }).join('')}</div>`;
-      }).join('') || '<p class="muted">No topics match your search.</p>'}`;
+    }
   }
 
   function categoryView(id) {
@@ -424,7 +436,7 @@ Include every key vocabulary word, every formula, and at least 10 practice quest
     const added = Store.libraryCardsAdded(id);
     const diff = Number(sessionStorageGet('difficulty') || 2);
     return `
-      <div class="page-head"><div><a href="#categories" class="muted small">← Categories</a><h1>${c.icon} ${esc(c.name)}</h1><p class="muted">${esc(c.level)} · ${esc(c.blurb)}</p></div></div>
+      <div class="page-head"><div><a href="#categories" class="muted small">← Categories</a><h1>${c.icon} ${esc(c.name)}</h1><p class="muted">${esc(c.subject === c.level ? c.subject : c.subject + ' · ' + c.level)} · ${esc(c.blurb)}</p></div></div>
       <div class="grid editor">
         <div class="card">
           <h2>📖 Reference sheet</h2>
@@ -471,7 +483,7 @@ service cloud.firestore {
       <div class="page-head"><div><a href="${Store.current() ? '#profile' : '#welcome'}" class="muted small">← Back</a><h1>Set up student accounts</h1>
       <p class="muted">${on ? '✅ Accounts are already on for this site.' : 'About 10 minutes, free. When you finish, students can create their own account, and everything they add is saved to it on any device.'}</p></div></div>
       <ol class="setup">
-        ${step(1, 'Create a Firebase project', `<p>Sign in with your Google account and click <b>Create a project</b>. Name it <code>math-study-guide</code> and click <b>Continue</b> until it's done. You can turn Google Analytics off.</p><div class="row">${ext('https://console.firebase.google.com/', 'Open Firebase')}</div>`)}
+        ${step(1, 'Create a Firebase project', `<p>Sign in with your Google account and click <b>Create a project</b>. Name it <code>universal-study-guide</code> and click <b>Continue</b> until it's done. You can turn Google Analytics off.</p><div class="row">${ext('https://console.firebase.google.com/', 'Open Firebase')}</div>`)}
         ${step(2, 'Turn on email and password sign-in', `<p>In the left menu: <b>Build → Authentication → Get started</b>. Click <b>Email/Password</b>, switch the first toggle <b>on</b>, and click <b>Save</b>.</p>`)}
         ${step(3, 'Allow your website', `<p>Still in Authentication, open the <b>Settings</b> tab → <b>Authorized domains</b> → <b>Add domain</b>, paste this, and click <b>Add</b>:</p>${copyBox('setupDomain', SETUP_DOMAIN)}`)}
         ${step(4, 'Create the database', `<p>In the left menu: <b>Build → Firestore Database → Create database</b>. Pick a location near you, choose <b>Start in production mode</b>, and click <b>Create</b>.</p><p>Then open the <b>Rules</b> tab, delete everything there, paste these rules, and click <b>Publish</b>. They make each student's notes visible only to that student.</p>${copyBox('setupRules', SETUP_RULES)}`)}
@@ -479,7 +491,7 @@ service cloud.firestore {
         ${step(6, 'Check your settings', `<p>Paste the block here to check it before you send it. Nothing is saved or sent anywhere.</p>
           <form class="stack" data-form="check-config">
             <label for="cfgInput">Your firebaseConfig</label>
-            <textarea id="cfgInput" name="cfg" rows="9" required placeholder="const firebaseConfig = {&#10;  apiKey: &quot;AIza...&quot;,&#10;  authDomain: &quot;math-study-guide.firebaseapp.com&quot;,&#10;  projectId: &quot;math-study-guide&quot;,&#10;  ...&#10;};"></textarea>
+            <textarea id="cfgInput" name="cfg" rows="9" required placeholder="const firebaseConfig = {&#10;  apiKey: &quot;AIza...&quot;,&#10;  authDomain: &quot;universal-study-guide.firebaseapp.com&quot;,&#10;  projectId: &quot;math-study-guide&quot;,&#10;  ...&#10;};"></textarea>
             <div class="row"><button class="btn primary" type="submit">Check settings</button></div>
             <div id="cfgResult"></div>
           </form>`)}
@@ -556,7 +568,7 @@ service cloud.firestore {
       }).join('')}</div>`;
     } else if (q.kind === 'input') {
       body = `<form data-form="answer-input" class="answer-form">
-        <input name="answer" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="${q.check === 'numeric' ? 'Type a number, fraction (3/4), or pi expression' : 'Type your answer'}" ${session.answered ? `disabled value="${esc(session.response || '')}"` : 'autofocus'} aria-label="Your answer">
+        <input name="answer" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="${q.check === 'numeric' ? 'Type a number (fractions like 3/4 work too)' : 'Type your answer'}" ${session.answered ? `disabled value="${esc(session.response || '')}"` : 'autofocus'} aria-label="Your answer">
         ${session.answered ? '' : '<button class="btn primary" type="submit">Check</button><button class="btn ghost" type="button" data-action="dont-know">I don\'t know</button>'}
       </form>`;
     } else {
@@ -667,7 +679,7 @@ service cloud.firestore {
     const chip = document.getElementById('profileChip');
     chip.innerHTML = p ? `<span class="avatar">${esc(p.name[0] || '?').toUpperCase()}</span><span class="chip-name">${esc(p.name)}</span>` : '';
     chip.style.display = p ? '' : 'none';
-    document.title = (name === 'welcome' ? '' : (name.charAt(0).toUpperCase() + name.slice(1)).replace(/-.*/, '') + ' · ') + 'Math Study Guide';
+    document.title = (name === 'welcome' ? '' : (name.charAt(0).toUpperCase() + name.slice(1)).replace(/-.*/, '') + ' · ') + 'Universal Study Guide';
     renderMath($app);
     const ta = $app.querySelector('textarea[data-input="preview-notes"]');
     if (ta && ta.value) previewNotes(ta);
@@ -679,6 +691,7 @@ service cloud.firestore {
 
   /* ---------- actions ---------- */
   const actions = {
+    'pick-subject': (el) => { sessionStorageSet('subject', el.dataset.subject); route(); },
     'auth-tab': (el) => { sessionStorageSet('authTab', el.dataset.tab); route(); },
     'log-out': async (el) => {
       el.disabled = true;
@@ -713,7 +726,7 @@ service cloud.firestore {
     'add-lib': (el) => { const c = Library.get(el.dataset.id); Store.addLibraryCards(c.id, c.concepts); toast(`Added ${c.concepts.length} cards to your review deck`); route(); },
     'remove-lib': (el) => { Store.removeLibraryCards(el.dataset.id); toast('Removed from your deck'); route(); },
     export: async () => {
-      const name = 'math-study-guide-' + Store.current().name.replace(/\W+/g, '-').toLowerCase() + '-' + U.dateKey() + '.json';
+      const name = 'study-guide-' + Store.current().name.replace(/\W+/g, '-').toLowerCase() + '-' + U.dateKey() + '.json';
       if (!(await saveFile(name, Store.exportProfile()))) toast('Backup not saved.');
     },
     'delete-profile': async () => { const p = Store.current(); if (await ask(`Delete the profile "${p.name}" and all its notes? This can't be undone.`, 'Delete profile')) { Store.deleteProfile(p.id); go('#welcome'); } },
@@ -773,7 +786,7 @@ service cloud.firestore {
     'add-exam': (f) => {
       const noteIds = Array.from(f.querySelectorAll('input[name=noteIds]:checked')).map((x) => x.value);
       const categoryIds = Array.from(f.querySelectorAll('input[name=categoryIds]:checked')).map((x) => x.value);
-      if (!noteIds.length && !categoryIds.length) { toast('Pick at least one set of notes or a math topic.'); return; }
+      if (!noteIds.length && !categoryIds.length) { toast('Pick at least one set of notes or a topic.'); return; }
       Store.addExam({ title: f.title.value.trim(), date: f.date.value, noteIds, categoryIds });
       toast('Test added. Good luck! 🍀'); route();
     },
