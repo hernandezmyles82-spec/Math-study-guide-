@@ -294,7 +294,8 @@ details summary { cursor: pointer; font-weight: 650; }
 @media (max-width: 640px) {
   .container { padding-block: 1rem 2.5rem; }
   .topbar { flex-wrap: wrap; padding-block: .55rem; gap: .5rem; }
-  .nav { order: 3; flex-basis: 100%; }
+  .nav { order: 3; flex-basis: 100%; flex-wrap: wrap; justify-content: center; gap: .15rem; overflow: visible; }
+  .nav a { padding: .35rem .6rem; font-size: .92rem; }
   .profile-chip { margin-left: auto; }
   .chip-name { display: none; }
   .grid.two, .grid.three { grid-template-columns: 1fr; }

@@ -16,7 +16,8 @@
   const Store = root.MSG.Store;
   const CHUNK = 60000; // characters; far below any document limit even when escaped or multi-byte
 
-  function status(s) { if (root.MSG.onSyncStatus) root.MSG.onSyncStatus(s); }
+  // The latest status is kept so the page can show it even if it arrives before the page is ready.
+  function status(s) { root.MSG.syncStatus = s; if (root.MSG.onSyncStatus) root.MSG.onSyncStatus(s); }
   function timeout(p, ms) { return Promise.race([p, new Promise((_, rej) => setTimeout(() => rej({ code: 'timeout' }), ms))]); }
 
   function SyncEngine(backend, opts) {
@@ -100,11 +101,12 @@
      computer one person never sees, or uploads into their account, the notes of whoever used it before.
      Until the account is known nothing is loaded (Sync.loading); visitors without an account fall back
      to the shared browser copy. */
-  const Sync = { start: startClaude, loading: false };
+  const Sync = { start: startClaude, loading: false, inClaude: false, mode: null }; // mode: 'claude' once saving to a claude.ai account
   const inClaude = !!(root.claude && typeof root.claude.use === 'function') && !root.MSG_FIREBASE_CONFIG;
+  Sync.inClaude = inClaude;
   if (inClaude) { Sync.loading = true; Store.useAccount(null); }
   function settle(uid) {
-    if (uid) Store.useAccount('claude-' + uid); else Store.useBrowserOnly();
+    if (uid) { Store.useAccount('claude-' + uid); Sync.mode = 'claude'; } else Store.useBrowserOnly();
     Sync.loading = false;
     if (root.MSG.onCloudLoad) root.MSG.onCloudLoad();
   }
@@ -127,7 +129,7 @@
       deleteChunk(id) { return chunks.doc(id).delete(); }
     }, {
       // This viewer may not save to the account (for example, view-only access): stay browser-only.
-      isFatal: (e) => e && (e.code === 'invalid_argument' || e.code === 'not_granted' || e.code === 'revoked')
+      isFatal: (e) => { const f = e && (e.code === 'invalid_argument' || e.code === 'not_granted' || e.code === 'revoked'); if (f) Sync.mode = null; return f; }
     });
     try {
       await engine.load();
