@@ -1,6 +1,6 @@
 /* Node test runner: node tests/run-tests.js */
 const path = require('path');
-['util', 'store', 'parser', 'library', 'library-subjects', 'library-more', 'generators', 'generators-subjects', 'generators-more', 'courses', 'quiz'].forEach((f) => require(path.join(__dirname, '..', 'js', f + '.js')));
+['util', 'store', 'parser', 'library', 'library-subjects', 'library-more', 'generators', 'generators-subjects', 'generators-more', 'courses', 'quiz', 'ai-format'].forEach((f) => require(path.join(__dirname, '..', 'js', f + '.js')));
 const { U, Library, Generators, parseNotes, Store, Quiz } = globalThis.MSG;
 let fails = 0, passes = 0;
 const ok = (cond, msg) => { if (cond) passes++; else { fails++; console.log('FAIL:', msg); } };
@@ -78,6 +78,14 @@ Library.groups().forEach((g) => {
 });
 ok(Library.categories.every((c) => c.band >= 0 && c.band <= 4), 'every topic has a grade band');
 Library.categories.forEach((c) => ok(Generators.has(c.id), c.id + ' has practice questions'));
+
+// Format with AI: the prompt carries the notes and the no-new-facts rules; answers are cleaned
+const { AIFormat } = globalThis.MSG;
+const pr = AIFormat.prompt('Osmosis - water moving across a membrane');
+ok(pr.includes('Osmosis - water moving across a membrane') && /Do NOT add facts/.test(pr) && /Keep EVERY fact/.test(pr), 'AI prompt includes the notes and the rules');
+ok(AIFormat.clean('```markdown\n## Cells\n- Osmosis: water\n```') === '## Cells\n- Osmosis: water', 'AI answer: code fence removed');
+ok(AIFormat.clean('Here are your formatted notes:\n## Cells') === '## Cells', 'AI answer: lead-in line removed');
+ok(AIFormat.message({ code: 'not_granted' }).includes('not allowed') && AIFormat.isPermanent({ code: 'not_granted' }) && !AIFormat.isPermanent({ code: 'rate_limited' }), 'AI errors: messages and permanence');
 
 // AP & IB courses: every course links to real topics, and a course quiz works
 const { Courses } = globalThis.MSG;

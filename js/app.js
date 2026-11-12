@@ -283,8 +283,11 @@ Include every key vocabulary word, every formula, and at least 10 practice quest
           </label>
           <div class="row">
             <label class="btn">📎 Upload .txt / .md<input type="file" accept=".txt,.md,.markdown,text/plain,text/markdown" data-change="load-file" hidden></label>
+            <button class="btn" type="button" data-action="ai-format">✨ Format with AI</button>
             <span class="muted small" id="parseCount"></span>
           </div>
+          <p class="muted small">Optional: AI can tidy up your own notes into the format that makes the best quiz questions. It keeps your facts and words, and you choose which version to keep.</p>
+          <div id="aiPanel" class="ai-panel" hidden></div>
           <div id="parsePreview" class="preview"></div>
           <div class="row"><button class="btn primary" type="submit">${n ? 'Save changes' : 'Save notes & build quiz'}</button><a class="btn" href="${n ? '#note--' + n.id : '#notes'}">Cancel</a></div>
         </form>
@@ -307,6 +310,39 @@ Include every key vocabulary word, every formula, and at least 10 practice quest
           <button class="btn small" type="button" data-action="copy-prompt">Copy prompt</button>
         </aside>
       </div>`;
+  }
+
+  /* ---------- Format with AI (js/ai-format.js) ---------- */
+  const AI = { ctl: null, result: '', original: null };
+  function aiPanel(html) { const p = document.getElementById('aiPanel'); if (!p) return null; p.hidden = !html; p.innerHTML = html || ''; return p; }
+  function aiCompare(form) {
+    const mine = form.content.value, theirs = AI.result;
+    const n1 = parseNotes(mine, { title: form.title.value }).length, n2 = parseNotes(theirs, { title: form.title.value }).length;
+    aiPanel(`<div class="ai-head"><b>✨ Compare and choose</b></div>
+      <div class="ai-compare">
+        <div><h4>Your notes</h4><pre class="ai-out">${esc(mine)}</pre><p class="small"><b>${plural(n1, 'study card')}</b></p></div>
+        <div><h4>Formatted by AI</h4><pre class="ai-out">${esc(theirs)}</pre><p class="small"><b>${plural(n2, 'study card')}</b>${n2 > n1 ? ' · more cards from the same notes' : ''}</p></div>
+      </div>
+      <p class="small muted">Check the formatted version: AI can make mistakes. It was told to keep your facts and add nothing new.</p>
+      <div class="row"><button class="btn primary" type="button" data-action="ai-use">Use formatted version</button><button class="btn" type="button" data-action="ai-dismiss">Keep mine</button><button class="btn ghost" type="button" data-action="ai-format" data-again="1">Try again</button></div>`);
+  }
+  function aiFallback(form, note) {
+    const promptText = window.MSG.AIFormat.prompt(form.content.value.trim());
+    aiPanel(`<div class="ai-head"><b>✨ Format with any AI chat</b><button class="btn small ghost" type="button" data-action="ai-dismiss">Close</button></div>
+      ${note ? `<p class="small">${esc(note)}</p>` : '<p class="small">This version of the site can\'t call an AI itself, but any AI chat can do it in three steps:</p>'}
+      <ol class="small steps-list"><li>Copy this prompt. It already includes your notes.</li><li>Paste it into ChatGPT, Claude or any AI chat and send it.</li><li>Paste the AI's answer in the box below and click <b>Use this version</b>.</li></ol>
+      <pre class="ai-prompt" id="aiFullPrompt">${esc(promptText)}</pre>
+      <div class="row"><button class="btn small primary" type="button" data-action="copy-text" data-target="aiFullPrompt">Copy prompt with my notes</button></div>
+      <label for="aiPaste">The AI's formatted notes</label>
+      <textarea id="aiPaste" rows="8" placeholder="Paste the AI's answer here"></textarea>
+      <div class="row"><button class="btn primary" type="button" data-action="ai-use-pasted">Use this version</button></div>`);
+  }
+  function aiApply(form) {
+    AI.original = form.content.value;
+    form.content.value = AI.result;
+    previewNotes(form.content);
+    aiPanel(`<div class="ai-head"><b>✓ Using the formatted version</b></div><p class="small">Review it above, then save. Changed your mind?</p><div class="row"><button class="btn small" type="button" data-action="ai-undo">Undo: bring back my notes</button></div>`);
+    toast('Formatted notes added. Review them, then save.');
   }
 
   function previewNotes(textarea) {
@@ -757,6 +793,48 @@ service cloud.firestore {
 
   /* ---------- actions ---------- */
   const actions = {
+    'ai-format': async (el) => {
+      const form = el.closest('form');
+      const notes = form.content.value.trim();
+      if (!notes) { toast('Paste or type your notes first.'); form.content.focus(); return; }
+      const AF = window.MSG.AIFormat;
+      if (notes.length > AF.MAX_CHARS) { aiPanel(`<p class="small">These notes are long (${notes.length.toLocaleString()} characters). Format them one section at a time: paste part of them, format, save, then add the rest as another set of notes.</p><div class="row"><button class="btn small" type="button" data-action="ai-dismiss">OK</button></div>`); return; }
+      const sample = await AF.available();
+      if (!sample) { aiFallback(form); return; }
+      if (AI.ctl) AI.ctl.abort();
+      const ctl = AI.ctl = new AbortController();
+      aiPanel(`<div class="ai-head"><b>✨ Formatting your notes…</b><button class="btn small ghost" type="button" data-action="ai-stop">Stop</button></div>
+        <pre class="ai-out" id="aiOut">Thinking… (the first time, claude.ai asks you to allow this. It uses your own Claude account.)</pre>`);
+      try {
+        const res = await sample(AF.prompt(notes), { signal: ctl.signal, cache: el.dataset.again ? false : undefined, onText: ({ text }) => { const o = document.getElementById('aiOut'); if (o) o.textContent = text; } });
+        if (AI.ctl !== ctl) return;
+        AI.ctl = null;
+        AI.result = AF.clean(res.text);
+        if (!AI.result) { aiPanel(`<p class="small">${esc(AF.message({ code: 'empty_completion' }))}</p>`); return; }
+        aiCompare(form);
+        if (res.truncated) toast('The answer was cut short. Format a smaller part at a time.');
+      } catch (e) {
+        if (AI.ctl === ctl) AI.ctl = null;
+        if (e && e.code === 'cancelled') { aiPanel(''); return; }
+        if (AF.isPermanent(e)) { aiFallback(form, AF.message(e)); return; }
+        aiPanel(`<p class="small">${esc(AF.message(e))}</p><div class="row"><button class="btn small" type="button" data-action="ai-format" data-again="1">Try again</button><button class="btn small ghost" type="button" data-action="ai-dismiss">Close</button></div>`);
+      }
+    },
+    'ai-stop': () => { if (AI.ctl) AI.ctl.abort(); },
+    'ai-use': (el) => aiApply(el.closest('form')),
+    'ai-use-pasted': (el) => {
+      const form = el.closest('form');
+      const pasted = window.MSG.AIFormat.clean(document.getElementById('aiPaste').value);
+      if (!pasted) { toast('Paste the AI\'s answer first.'); return; }
+      AI.result = pasted;
+      aiApply(form);
+    },
+    'ai-dismiss': () => { if (AI.ctl) AI.ctl.abort(); aiPanel(''); },
+    'ai-undo': (el) => {
+      const form = el.closest('form');
+      if (AI.original != null) { form.content.value = AI.original; AI.original = null; previewNotes(form.content); }
+      aiPanel(''); toast('Your original notes are back.');
+    },
     'cat-view': (el) => { sessionStorageSet('catView', el.dataset.view); if (location.hash !== '#categories') go('#categories'); else route(); },
     'pick-band': (el) => { sessionStorageSet('band', el.dataset.band); route(); },
     'pick-program': (el) => { sessionStorageSet('program', el.dataset.program); route(); },

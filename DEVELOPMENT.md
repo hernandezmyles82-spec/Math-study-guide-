@@ -130,6 +130,16 @@ log in / create account screen until Firebase reports a signed-in user and their
 
 > ⚠️ **Watch out:** Firebase cannot run inside the claude.ai artifact (its sandbox blocks outside connections). When publishing the artifact, publish a `js/firebase-config.js` that sets `null`, even if the repository's copy has real settings.
 
+### Format with AI
+
+`js/ai-format.js` holds the prompt (`AIFormat.prompt(notes)`, with rules to keep every fact and add nothing), cleans the answer (`clean()` strips code fences and lead-in lines) and finds the AI: inside claude.ai it is the `sample` capability (`claude.use('sample')`); anywhere else `available()` resolves null and the editor shows the copy-a-prompt panel instead. The UI is the `ai-*` actions in `js/app.js`.
+
+> ⚠️ **Watch out:** Never replace the student's notes without their choice. The editor shows both versions and changes the textarea only on "Use formatted version", keeping the original for "Undo".
+
+> ⚠️ **Watch out:** The claude.ai page must declare `sample` along with `db`, `user` and `downloads`. Passing `capabilities` on publish replaces the whole set, so always pass all four.
+
+> ⚠️ **Watch out:** `[hidden] { display: none !important }` in `css/styles.css` keeps the `hidden` attribute working on elements whose class sets `display` (such as the AI panel). Without it, a "hidden" panel stays on screen outside claude.ai.
+
 ### Tests
 
 `node tests/run-tests.js` checks the evaluator and answer checker, the parser against

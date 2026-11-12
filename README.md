@@ -24,6 +24,7 @@ Both versions are built from the same code (`python3 tools/build-artifact.py` ma
   - `Q: ...` / `A: ...` practice questions, `Example: ...` / `Solution / Answer: ...` worked problems
   - Markdown tables, `front :: back` flashcards, and `{{cloze}}` blanks
   - LaTeX math (`$x^2$`, `$$\frac{a}{b}$$`, `\( \)`), rendered with KaTeX
+- **Format with AI (optional)**: paste your own notes, then click **✨ Format with AI** to have AI tidy them into the format that makes the best quiz questions. It keeps your facts and wording and adds nothing new, and you see both versions side by side, with the number of study cards each makes, before choosing. You can always undo. On the claude.ai version, Claude does it right in the page (using your own Claude account, after you allow it); on the public website, the button gives you a ready-made prompt with your notes to paste into any AI chat.
 - **Quizzes**: multiple choice, type the answer (understands `3/4`, `0.75`, `25pi`, `sqrt(2)`) and flashcards. Includes an "I was actually right" override.
 - **Spaced repetition / daily review**: cards you miss come back in 10 minutes; cards you know come back after 1, 3, 7+ days.
 - **Test Prep**: add a quiz or test date and choose which notes and topics are on it. Then take a **Quick quiz** (your weakest cards), a **Full practice test**, or use **🔥 Cram mode**, which repeats every miss until you get it right. Includes a countdown and a daily study plan.
@@ -69,6 +70,7 @@ css/styles.css      styles (light + dark mode, mobile friendly)
 js/util.js          helpers, safe math evaluator, answer checking
 js/store.js         profiles, notes, cards, exams, spaced repetition (localStorage)
 js/sync.js          saves to an online account (claude.ai or Firebase)
+js/ai-format.js     "Format with AI": the prompt, cleanup of the answer, and claude.ai's ask-Claude
 js/accounts.js      website sign up / log in with Firebase
 js/firebase-config.js  your Firebase settings (null = accounts off)
 firestore.rules     database rules: each student reads/writes only their own data
