@@ -557,7 +557,7 @@ Include every key vocabulary word, every formula, and at least 10 practice quest
   }
 
   /* ---------- "Set up accounts" guide for the site owner (#setup) ---------- */
-  const SETUP_DOMAIN = location.hostname && location.hostname !== 'localhost' && !/claude/.test(location.hostname) ? location.hostname : 'hernandezmyles82-spec.github.io';
+  const SETUP_DOMAIN = location.hostname && location.hostname !== 'localhost' && !/claude/.test(location.hostname) ? location.hostname : 'your-site.github.io';
   const SETUP_RULES = `rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {

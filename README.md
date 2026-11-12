@@ -9,7 +9,7 @@ A website that turns **notes for any subject** into quizzes: math, science, hist
   privately to that account: nobody else, including the page's owner, can see them, and they follow the
   person to any device. To share it, open the link → **Share** → give people **Contributor** access
   (Viewers can use it, but their notes stay in their own browser).
-- **Public website (GitHub Pages):** https://hernandezmyles82-spec.github.io/universal-study-guide/
+- **Public website (GitHub Pages):** https://hernandezmyles82-spec.github.io/Universal-Study-Guide/
   No sign-in; notes are saved in each visitor's browser. Optional email/password accounts can be
   turned on with Firebase (see [FIREBASE-SETUP.md](FIREBASE-SETUP.md)).
 
