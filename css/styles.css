@@ -367,3 +367,7 @@ h3.level { font-size: .95rem; margin: 1rem 0 .6rem; }
 .ai-panel textarea { font-family: inherit; }
 .steps-list { margin: 0; padding-left: 1.2rem; }
 @media (max-width: 640px) { .ai-compare { grid-template-columns: 1fr; } }
+
+/* ---------- AI choice ---------- */
+.ai-choice span { display: inline-block; }
+@media (max-width: 640px) { .ai-choice label, .ai-choice span { width: 100%; } .ai-choice span { text-align: center; } }

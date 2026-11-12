@@ -134,6 +134,8 @@ log in / create account screen until Firebase reports a signed-in user and their
 
 `js/ai-format.js` holds the prompt (`AIFormat.prompt(notes)`, with rules to keep every fact and add nothing), cleans the answer (`clean()` strips code fences and lead-in lines) and finds the AI: inside claude.ai it is the `sample` capability (`claude.use('sample')`); anywhere else `available()` resolves null and the editor shows the copy-a-prompt panel instead. The UI is the `ai-*` actions in `js/app.js`.
 
+AI is opt-in. The note editor starts with a choice, "📝 Keep my notes as I wrote them" (default) or "✨ Let AI format my notes", saved per profile as `settings.aiFormat` (`'off'` | `'on'`, also on the Profile page). Elements marked `data-ai-only` (the Format button and its help text) are hidden unless the choice is on. In AI mode, saving notes that were never formatted (`content !== AI.appliedText`) asks first: format now, or save as written. With the choice off, nothing ever calls the AI.
+
 > ⚠️ **Watch out:** Never replace the student's notes without their choice. The editor shows both versions and changes the textarea only on "Use formatted version", keeping the original for "Undo".
 
 > ⚠️ **Watch out:** The claude.ai page must declare `sample` along with `db`, `user` and `downloads`. Passing `capabilities` on publish replaces the whole set, so always pass all four.
