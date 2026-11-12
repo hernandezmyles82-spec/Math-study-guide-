@@ -11,7 +11,7 @@ The website has the same guide built in, with copy buttons and a settings checke
 ## 1. Create a Firebase project
 
 1. Go to https://console.firebase.google.com and sign in with a Google account.
-2. Click **Create a project** (or **Add project**), name it (for example `math-study-guide`),
+2. Click **Create a project** (or **Add project**), name it (for example `universal-study-guide`),
    and click through. You can turn Google Analytics off.
 
 ## 2. Turn on email and password sign-in
@@ -38,9 +38,9 @@ The website has the same guide built in, with copy buttons and a settings checke
    ```js
    window.MSG_FIREBASE_CONFIG = {
      apiKey: "AIza...",
-     authDomain: "math-study-guide.firebaseapp.com",
-     projectId: "math-study-guide",
-     storageBucket: "math-study-guide.appspot.com",
+     authDomain: "universal-study-guide.firebaseapp.com",
+     projectId: "universal-study-guide",
+     storageBucket: "universal-study-guide.appspot.com",
      messagingSenderId: "1234567890",
      appId: "1:1234567890:web:abc123"
    };

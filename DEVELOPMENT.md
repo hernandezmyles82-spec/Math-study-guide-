@@ -12,8 +12,8 @@ node tests/run-tests.js
 ## How the app is built
 
 A static, build-free website: plain HTML/CSS/JS with no server and no framework. A student
-pastes math notes; the site turns them into study cards, quizzes them with spaced
-repetition, runs test prep (quick quiz / full test / cram mode), and offers 35 built-in math
+pastes notes for any subject; the site turns them into study cards, quizzes them with spaced
+repetition, runs test prep (quick quiz / full test / cram mode), and offers built-in
 categories with randomized practice problems.
 
 ### Modules and load order
@@ -24,7 +24,7 @@ global `window.MSG` namespace (or `globalThis` under Node, so the tests can `req
 | File | Role |
 |---|---|
 | `js/util.js` | `MSG.U`: random helpers, HTML escaping, dates, a safe math evaluator (`U.evalExpr`, `js/util.js:57`) and answer checking (`U.checkText`, `js/util.js:147`) |
-| `js/store.js` | `MSG.Store`: profiles, notes, cards, exams, spaced repetition. Persists to `localStorage` under `mathStudyGuide.v1` (`js/store.js:6`) |
+| `js/store.js` | `MSG.Store`: profiles, notes, cards, exams, spaced repetition. Persists to `localStorage` under `mathStudyGuide.v1` |
 | `js/parser.js` | `MSG.parseNotes`: notes into cards. See the "Notes parser" section below |
 | `js/library.js` | `MSG.Library`: the categories and their reference-sheet concepts, written as one `String.raw` block parsed at load |
 | `js/generators.js` | `MSG.Generators`: per-category random problem generators keyed by the same category ids (`generate`, `js/generators.js:458`) |
@@ -54,6 +54,19 @@ or `library` (concepts added from a category, with id `lib:<category>:<index>`).
 
 > ⚠️ **Watch out:** `Store.importProfile` rebuilds every field of a backup by hand with the right type, because ids, dates and numbers are put into the page without escaping and a backup file can be edited by anyone. The flip side: **a field added to the data model must also be added to `importProfile`, or it is silently dropped when a student restores a backup.** The round-trip tests in `tests/run-tests.js` catch missing links (cards to notes, exams to notes) but not new fields.
 
+### Subjects
+
+`Library.addSubject(name, icon, levels, raw)` registers a subject; `js/library.js` adds Math and
+`js/library-subjects.js` adds the rest. Each category has a `subject` and a `level` (a group inside the
+subject), and `Library.groups()` returns subjects → levels → categories for the Categories page, the
+note editor and Test Prep. Practice questions for a category id live in `MSG.Generators.G[id]`
+(`js/generators.js` for math, `js/generators-subjects.js` for the rest); the test suite requires every
+category to have some.
+
+> ⚠️ **Watch out:** The site was renamed from Math Study Guide to Universal Study Guide, but the storage key stays `mathStudyGuide.v1` (and `mathStudyGuide.v1:<uid>` with accounts). Renaming it would make every student's saved notes disappear.
+
+> ⚠️ **Watch out:** In a category quiz, wrong answer choices come from the same subject (`forCategory` in `js/quiz.js`). A quiz built from notes never borrows another subject's definitions; with too few cards it uses typed or flashcard questions instead.
+
 ### Question shapes
 
 Every quiz question is one of three kinds: `mc` (choices + correct index), `input` (typed;
@@ -75,7 +88,7 @@ All text goes through `U.esc` before insertion, then KaTeX auto-render runs over
 view (`renderMath`, `js/app.js:38`) with `$`, `$$`, `\(` and `\[` delimiters. KaTeX reads
 text nodes, so escaped `&lt;` inside math still renders correctly.
 
-> ⚠️ **Watch out:** Single `$` is a math delimiter, so a note like "costs $5 and $10" renders the middle as math. Generators deliberately never print `$` for money (they say "dollars").
+> ⚠️ **Watch out:** Single `$` is a math delimiter. `money()` in `js/app.js` wraps a `$` that starts a plain amount ("$5", "$1,200.50") in its own element so the renderer cannot pair it, which keeps "costs $5 and $10" from turning into math. Keep `fmt()` and `md()` going through it. Generators deliberately never print `$` for money (they say "dollars").
 
 ### Running inside claude.ai
 
@@ -129,7 +142,7 @@ any card afterwards, so it favors finding more cards over perfect precision.
    (`js/parser.js:166`), `Example:`/`Solution:`/`Answer:` (`js/parser.js:191`),
    label-then-formula, `Term: definition` / `**Term** - def`, natural-language
    definitions (`js/parser.js:242`), standalone formulas (`js/parser.js:255`), then
-   fill-in-the-blank from bold words, math vocabulary or numbers (`js/parser.js:267`).
+   fill-in-the-blank from bold words, then a year, then math vocabulary, then a name (`properNoun`), then any number.
 4. Dedupe on `front|back`.
 
 Card types: `def` (has `term`, so quizzes can ask in both directions), `qa`, `cloze`,

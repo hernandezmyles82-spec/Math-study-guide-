@@ -1,4 +1,4 @@
-# Math Study Guide
+# Universal Study Guide
 
 Static website (no build step): open `index.html`. Run tests with `node tests/run-tests.js`.
 

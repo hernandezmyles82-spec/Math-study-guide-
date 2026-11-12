@@ -1,6 +1,6 @@
 /* Node test runner: node tests/run-tests.js */
 const path = require('path');
-['util', 'store', 'parser', 'library', 'generators', 'quiz'].forEach((f) => require(path.join(__dirname, '..', 'js', f + '.js')));
+['util', 'store', 'parser', 'library', 'library-subjects', 'generators', 'generators-subjects', 'quiz'].forEach((f) => require(path.join(__dirname, '..', 'js', f + '.js')));
 const { U, Library, Generators, parseNotes, Store, Quiz } = globalThis.MSG;
 let fails = 0, passes = 0;
 const ok = (cond, msg) => { if (cond) passes++; else { fails++; console.log('FAIL:', msg); } };
@@ -58,6 +58,20 @@ ok(cards.some((c) => c.term === 'Derivative'), 'definition card');
 ok(cards.some((c) => c.type === 'problem' && /8x \+ 3/.test(c.back)), 'problem card');
 ok(cards.some((c) => c.front === 'What is the derivative of x^3?' && c.back === '3x^2'), 'Q/A card');
 ok(cards.some((c) => c.type === 'cloze' && c.back === 'chain rule'), 'explicit cloze');
+
+// notes from other subjects (history, biology)
+const hist = parseNotes(fs.readFileSync(path.join(__dirname, 'sample-notes-history.md'), 'utf8'), { title: 'Revolution' });
+ok(hist.some((c) => c.type === 'cloze' && c.back === '1776'), 'history: year blank');
+ok(hist.some((c) => c.type === 'cloze' && c.back === 'Thomas Jefferson'), 'history: person blank');
+ok(hist.some((c) => c.type === 'cloze' && c.back === 'Battle of Saratoga'), 'history: event blank');
+ok(hist.some((c) => c.term === 'Patriots') && hist.some((c) => c.term === 'Loyalists'), 'history: definitions');
+ok(hist.some((c) => c.back === 'George Washington'), 'history: Q/A');
+ok(hist.some((c) => c.term === 'Osmosis'), 'biology: "X is the ..." definition');
+
+// every subject has categories, and every category has a reference sheet
+Library.groups().forEach((g) => ok(g.levels.length && g.levels.every((l) => l.cats.length), 'subject ' + g.subject + ' has categories'));
+ok(Library.groups().length >= 6, 'six or more subjects');
+Library.categories.forEach((c) => ok(Generators.has(c.id), c.id + ' has practice questions'));
 
 // store + quiz
 Store._reset();

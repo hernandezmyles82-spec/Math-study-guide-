@@ -587,5 +587,5 @@
   }
 
   root.MSG = root.MSG || {};
-  root.MSG.Generators = { G, generate, has: (id) => !!(G[id] && G[id].length), fmtNum };
+  root.MSG.Generators = { G, generate, has: (id) => !!(G[id] && G[id].length), fmtNum, helpers: { num, mc, m, frac, fmtNum } };
 })(typeof window !== 'undefined' ? window : globalThis);
