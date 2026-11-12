@@ -59,7 +59,7 @@ The website has the same guide built in, with copy buttons and a settings checke
 ## 6. Publish the website
 
 In the GitHub repository: **Settings → Pages → Deploy from a branch → `main` / `(root)` → Save**.
-After a minute or two the site is at https://hernandezmyles82-spec.github.io/Math-study-guide-/
+After a minute or two the site is at https://hernandezmyles82-spec.github.io/universal-study-guide/
 and visitors see **Log in / Create account**.
 
 ## Good to know

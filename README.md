@@ -2,6 +2,8 @@
 
 A website that turns **notes for any subject** into quizzes: math, science, history, English, languages, anything. Paste notes from class, a study guide, or from ChatGPT, Claude or any other AI. The site saves them under your profile, builds study cards, quizzes you over time with spaced repetition, and helps you cram before a quiz or test. No notes? Practice **53 built-in topics across 6 subjects**, from arithmetic to topology, biology to world history, grammar to Spanish.
 
+**Live site:** https://hernandezmyles82-spec.github.io/universal-study-guide/
+
 ## Features
 
 - **Profiles**: each student has their own notes, cards and progress (saved in the browser).
