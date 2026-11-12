@@ -1,6 +1,6 @@
 /* Node test runner: node tests/run-tests.js */
 const path = require('path');
-['util', 'store', 'parser', 'library', 'library-subjects', 'generators', 'generators-subjects', 'quiz'].forEach((f) => require(path.join(__dirname, '..', 'js', f + '.js')));
+['util', 'store', 'parser', 'library', 'library-subjects', 'library-more', 'generators', 'generators-subjects', 'generators-more', 'courses', 'quiz'].forEach((f) => require(path.join(__dirname, '..', 'js', f + '.js')));
 const { U, Library, Generators, parseNotes, Store, Quiz } = globalThis.MSG;
 let fails = 0, passes = 0;
 const ok = (cond, msg) => { if (cond) passes++; else { fails++; console.log('FAIL:', msg); } };
@@ -44,7 +44,7 @@ for (const [id, gens] of Object.entries(Generators.G)) {
         const norm = q.choices.map((c) => c.replace(/\s+/g, ''));
         ok(new Set(norm).size === norm.length, where + ' choices identical apart from spacing ' + q.choices);
       }
-      ok(!/NaN|Infinity/.test(q.prompt), where + ' bad prompt');
+      ok(!/\bNaN\b|Infinity/.test(q.prompt), where + ' bad prompt');
     }
   });
 }
@@ -70,8 +70,23 @@ ok(hist.some((c) => c.term === 'Osmosis'), 'biology: "X is the ..." definition')
 
 // every subject has categories, and every category has a reference sheet
 Library.groups().forEach((g) => ok(g.levels.length && g.levels.every((l) => l.cats.length), 'subject ' + g.subject + ' has categories'));
-ok(Library.groups().length >= 6, 'six or more subjects');
+ok(Library.groups().length >= 7, 'seven or more subjects');
+// every subject runs from elementary up to at least AP & IB
+Library.groups().forEach((g) => {
+  const bands = g.levels.flatMap((l) => l.cats.map((c) => c.band));
+  ok(Math.min(...bands) === 0 && Math.max(...bands) >= 3, g.subject + ' spans elementary to AP/IB or college');
+});
+ok(Library.categories.every((c) => c.band >= 0 && c.band <= 4), 'every topic has a grade band');
 Library.categories.forEach((c) => ok(Generators.has(c.id), c.id + ' has practice questions'));
+
+// AP & IB courses: every course links to real topics, and a course quiz works
+const { Courses } = globalThis.MSG;
+ok(Courses.list.filter((c) => c.program === 'AP').length >= 30 && Courses.list.filter((c) => c.program === 'IB').length >= 20, 'AP and IB catalogs present');
+ok(new Set(Courses.list.map((c) => c.id)).size === Courses.list.length, 'course ids are unique');
+Courses.list.forEach((c) => {
+  ok(c.units.length >= 3 && c.topics.length >= 1, c.id + ' has units and topics');
+  c.topics.forEach((t) => ok(Library.get(t), c.id + ' links to existing topic ' + t));
+});
 
 // store + quiz
 Store._reset();
@@ -87,6 +102,7 @@ ok(qs.length === cards.length, 'quiz from cards');
 qs.forEach((q) => ok(['mc', 'input', 'flash'].includes(q.kind) && q.prompt, 'question shape ' + JSON.stringify(q).slice(0, 80)));
 qs.filter((q) => q.kind === 'mc').forEach((q) => ok(q.choices[q.correct] != null && new Set(q.choices).size === q.choices.length, 'mc from card'));
 const cat = Quiz.forCategory('derivatives', 10, 2);
+Courses.list.forEach((c) => { const qs = Quiz.forCourse(c, 12, 2); ok(qs.length === 12 && qs.every((q) => q && q.prompt), c.id + ' course quiz builds 12 questions'); });
 ok(cat.length === 10, 'category quiz length');
 const ex = Store.addExam({ title: 'Test', date: U.dateKey(Date.now() + 86400000), noteIds: [note.id], categoryIds: ['limits'] });
 ok(Quiz.forExam(ex, 'quick').length > 0, 'exam quick');

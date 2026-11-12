@@ -1,6 +1,6 @@
 # Universal Study Guide
 
-A website that turns **notes for any subject** into quizzes: math, science, history, English, languages, anything. Paste notes from class, a study guide, or from ChatGPT, Claude or any other AI. The site saves them under your profile, builds study cards, quizzes you over time with spaced repetition, and helps you cram before a quiz or test. No notes? Practice **53 built-in topics across 6 subjects**, from arithmetic to topology, biology to world history, grammar to Spanish.
+A website that turns **notes for any subject** into quizzes: math, science, history, English, languages, anything. Paste notes from class, a study guide, or from ChatGPT, Claude or any other AI. The site saves them under your profile, builds study cards, quizzes you over time with spaced repetition, and helps you cram before a quiz or test. No notes? Practice **91 built-in topics across 7 subjects, from elementary school to AP, IB and college**, or study any of **60 AP and IB courses** unit by unit.
 
 ## Use it
 
@@ -27,13 +27,15 @@ Both versions are built from the same code (`python3 tools/build-artifact.py` ma
 - **Quizzes**: multiple choice, type the answer (understands `3/4`, `0.75`, `25pi`, `sqrt(2)`) and flashcards. Includes an "I was actually right" override.
 - **Spaced repetition / daily review**: cards you miss come back in 10 minutes; cards you know come back after 1, 3, 7+ days.
 - **Test Prep**: add a quiz or test date and choose which notes and topics are on it. Then take a **Quick quiz** (your weakest cards), a **Full practice test**, or use **🔥 Cram mode**, which repeats every miss until you get it right. Includes a countdown and a daily study plan.
-- **Built-in subjects**: a reference sheet plus endless practice questions for every topic:
-  - **Math** (36 topics, Easy / Medium / Hard): Arithmetic, Fractions, Percents, Exponents, Ratios, Linear Equations, Algebra 2 (Functions, Slope & Lines), Lines & Slope, Systems, Polynomials, Quadratics, Logs, Functions, Area, Pythagorean Theorem, Angles, Volume, Unit Circle, Right-Triangle Trig, Sequences, Complex Numbers, Limits, Derivatives, Integrals, Series, Multivariable Calculus, Linear Algebra, Differential Equations, Statistics & Probability, Discrete Math, Number Theory, Abstract Algebra, Real Analysis, Complex Analysis and Topology.
-  - **Science**: Cells; Genetics & Evolution (Punnett squares); Ecology & Energy; Atoms & the Periodic Table (symbols, protons/neutrons/electrons, molar mass, pH, bonds); Forces, Motion & Energy (speed, F = ma, energy, work, power, Ohm's law); Earth & Space.
-  - **History & Social Studies**: U.S. History, World History (dates and "which came first"), Government & Civics, World Geography (capitals and continents), Economics & Personal Finance.
-  - **English**: Grammar & Parts of Speech, Literary Devices, Reading & Writing Skills, Word Roots.
-  - **World Languages**: Spanish and French vocabulary and verb conjugation.
-  - **Computer Science**: programming basics, binary, Boolean logic, Big-O and reading code.
+- **Built-in subjects, lowest to highest**: every topic has a reference sheet and endless practice questions, and a level tag (Elementary, Middle school, High school, AP & IB, College). The Categories page filters by subject and by level.
+  - **Math** (37): early math (place value, time, money) → arithmetic, fractions → algebra, geometry, trig → precalculus → AP/IB calculus and statistics → college linear algebra, differential equations, discrete math, number theory, abstract algebra, real and complex analysis, topology.
+  - **Science** (13): Science Explorers → cells, genetics, ecology, human body, earth & space, astronomy → chemistry (atoms, reactions & stoichiometry), physics (motion, waves & electricity) → environmental science → organic chemistry.
+  - **History & Social Studies** (14): community & map skills → ancient civilizations, geography → U.S. and world history, government, economics → European history, psychology, human geography, comparative government, macro- and microeconomics → philosophy & political theory.
+  - **English** (9): phonics & early reading → grammar, word roots, literary devices → reading & writing → rhetoric (AP Language), poetry (AP Literature), research & Theory of Knowledge → literary theory.
+  - **World Languages** (10): first words in Spanish → Spanish basics → past tenses → advanced grammar (AP/IB); French, German, Italian, Latin, Chinese and Japanese.
+  - **Computer Science** (5): digital literacy → programming basics → Java (AP CSA), internet & cybersecurity (AP CSP) → data structures & algorithms.
+  - **Arts & Music** (3): art & music basics → music theory → art history.
+- **AP & IB courses** (60): all 36 AP courses and 24 IB Diploma subjects (including TOK and the Extended Essay). Each course page lists the official units, links the topics that practice them, gives a "Practice this course" quiz that mixes all of them, and can start a Test Prep plan with those topics already picked.
 - **Weak spots** on the dashboard, study streaks, and **backup / import** to move your data between devices.
 
 ### Tip for AI notes
@@ -73,8 +75,11 @@ firestore.rules     database rules: each student reads/writes only their own dat
 js/parser.js        notes → study cards
 js/library.js       subjects + math topics with reference sheets
 js/library-subjects.js  science, history, English, languages, computer science topics
+js/library-more.js  beginner and advanced topics for every subject, Arts & Music, and each topic's grade band
+js/courses.js       AP and IB courses: units and linked topics
 js/generators.js    randomized math practice problems
 js/generators-subjects.js  practice questions for the other subjects
+js/generators-more.js  practice questions for the topics in library-more.js
 js/quiz.js          builds quizzes from cards / categories / exams
 js/app.js           UI views and routing
 vendor/katex/       KaTeX math rendering (MIT license)

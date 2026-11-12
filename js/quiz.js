@@ -134,6 +134,17 @@
     return out;
   }
 
+  /* A course quiz spreads questions evenly across the course's topics. */
+  function forCourse(course, n, d) {
+    const topics = U.shuffle(course.topics.filter((id) => Library.get(id)));
+    const out = [];
+    topics.forEach((id, i) => {
+      const share = Math.floor(n / topics.length) + (i < n % topics.length ? 1 : 0);
+      if (share) out.push(...forCategory(id, share, d));
+    });
+    return U.shuffle(out).slice(0, n);
+  }
+
   function examCards(exam) {
     const p = Store.current();
     return p.cards.filter((c) => exam.noteIds.includes(c.noteId) || (c.source === 'library' && exam.categoryIds.includes(c.categoryId)));
@@ -185,5 +196,5 @@
     return response === true || response === '1'; // flash: self-graded
   }
 
-  root.MSG.Quiz = { cardQuestion, fromCards, forCategory, forExam, forNote, dailyReview, weakest, check, conceptCards, examCards };
+  root.MSG.Quiz = { cardQuestion, fromCards, forCategory, forCourse, forExam, forNote, dailyReview, weakest, check, conceptCards, examCards };
 })(typeof window !== 'undefined' ? window : globalThis);

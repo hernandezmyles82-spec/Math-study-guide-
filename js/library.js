@@ -399,11 +399,19 @@ Euler characteristic|\(\chi = V - E + F\); for a closed orientable surface of ge
       SUBJECTS.push({ name, icon, levels, blurb: blurb || '' });
       parse(name, raw);
     },
+    /* Add categories to an existing subject; new levels go first (beginner) or last (advanced). */
+    addCategories(subject, raw, newLevels) {
+      const subj = SUBJECTS.find((x) => x.name === subject);
+      (newLevels || []).forEach(([level, where]) => { if (!subj.levels.includes(level)) (where === 'first' ? subj.levels.unshift(level) : subj.levels.push(level)); });
+      parse(subject, raw);
+    },
+    /* Grade bands, lowest to highest. Each category gets one (see js/library-more.js). */
+    BANDS: ['Elementary (K–5)', 'Middle School (6–8)', 'High School (9–12)', 'AP & IB', 'College'],
     /* Subjects in order, each with its levels in order and the categories in each level. */
     groups() {
       return SUBJECTS.map((s) => ({
         subject: s.name, icon: s.icon, blurb: s.blurb,
-        levels: s.levels.map((level) => ({ level, cats: categories.filter((c) => c.subject === s.name && c.level === level) })).filter((l) => l.cats.length)
+        levels: s.levels.map((level) => ({ level, cats: categories.filter((c) => c.subject === s.name && c.level === level).sort((x, y) => (x.band || 0) - (y.band || 0)) })).filter((l) => l.cats.length)
       }));
     }
   };
