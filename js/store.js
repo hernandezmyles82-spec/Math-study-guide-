@@ -55,7 +55,7 @@
       const p = {
         id: U.uid(), name: String(name).trim() || 'Student', createdAt: Date.now(),
         notes: [], cards: [], exams: [], activity: {}, catStats: {}, sessions: [],
-        settings: { quizLength: 10, dailyLimit: 25 }
+        settings: { quizLength: 10, dailyLimit: 25, aiFormat: 'off' }
       };
       db.profiles[p.id] = p; db.currentId = p.id; save();
       return p;
@@ -261,7 +261,7 @@
       const p = {
         id: U.uid(), name: str(src.name, 40).trim() || 'Student', createdAt: n(src.createdAt, Date.now()),
         notes, cards, exams, activity, catStats, sessions,
-        settings: { quizLength: Math.min(50, Math.max(1, n(set.quizLength, 10))), dailyLimit: Math.min(500, Math.max(1, n(set.dailyLimit, 25))) }
+        settings: { quizLength: Math.min(50, Math.max(1, n(set.quizLength, 10))), dailyLimit: Math.min(500, Math.max(1, n(set.dailyLimit, 25))), aiFormat: set.aiFormat === 'on' ? 'on' : 'off' }
       };
       db.profiles[p.id] = p; db.currentId = p.id; save();
       return p;

@@ -65,11 +65,12 @@
     setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 300); }, 2600);
   }
   /* In-page confirmation dialog. Browser confirm()/alert() are not shown inside a claude.ai artifact. */
-  function ask(message, okLabel) {
+  function ask(message, okLabel, opts) {
+    opts = opts || {};
     return new Promise((resolve) => {
       const wrap = document.createElement('div');
       wrap.className = 'modal-backdrop';
-      wrap.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-labelledby="askMsg"><p id="askMsg">${esc(message)}</p><div class="row"><button class="btn danger-solid" type="button" data-ok>${esc(okLabel || 'Delete')}</button><button class="btn" type="button" data-cancel>Cancel</button></div></div>`;
+      wrap.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-labelledby="askMsg"><p id="askMsg">${esc(message)}</p><div class="row"><button class="btn ${opts.primary ? 'primary' : 'danger-solid'}" type="button" data-ok>${esc(okLabel || 'Delete')}</button><button class="btn" type="button" data-cancel>${esc(opts.cancel || 'Cancel')}</button></div></div>`;
       const done = (v) => { wrap.remove(); document.removeEventListener('keydown', onKey, true); resolve(v); };
       const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); done(false); } };
       wrap.addEventListener('click', (e) => { if (e.target === wrap || e.target.closest('[data-cancel]')) done(false); else if (e.target.closest('[data-ok]')) done(true); });
@@ -268,6 +269,7 @@ Include every key vocabulary word, every formula, and at least 10 practice quest
 
   function noteEditor(id) {
     const n = id ? Store.note(id) : null;
+    const aiOn = Store.current().settings.aiFormat === 'on'; // the student's choice; off unless they pick AI
     if (id && !n) return notFound();
     return `
       <div class="page-head"><div><h1>${n ? 'Edit notes' : 'Add notes'}</h1><p class="muted">Paste notes from anywhere, or upload a .txt / .md file. Works for any subject. Math in LaTeX ($x^2$) is supported.</p></div></div>
@@ -278,15 +280,19 @@ Include every key vocabulary word, every formula, and at least 10 practice quest
             <label>Class (optional)<input name="course" maxlength="60" value="${n ? esc(n.course) : ''}" placeholder="e.g. Biology, AP U.S. History, Spanish 2"></label>
           </div>
           <label>Subject topic (optional; adds practice questions to your quizzes)<select name="categoryId">${categoryOptions(n ? n.categoryId : '')}</select></label>
+          <fieldset class="seg ai-choice"><legend>How do you want to add your notes?</legend>
+            <label><input type="radio" name="aiMode" value="off" data-change="ai-mode" ${aiOn ? '' : 'checked'}><span>📝 Keep my notes as I wrote them</span></label>
+            <label><input type="radio" name="aiMode" value="on" data-change="ai-mode" ${aiOn ? 'checked' : ''}><span>✨ Let AI format my notes</span></label>
+          </fieldset>
           <label>Your notes
             <textarea name="content" rows="18" required data-input="preview-notes" placeholder="Paste your notes here...&#10;&#10;## The Cell&#10;- Mitochondria: releases energy from food for the cell&#10;- Osmosis: the diffusion of water across a membrane&#10;&#10;Q: What does the nucleus do?&#10;A: Controls the cell and holds its DNA">${n ? esc(n.content) : ''}</textarea>
           </label>
           <div class="row">
             <label class="btn">📎 Upload .txt / .md<input type="file" accept=".txt,.md,.markdown,text/plain,text/markdown" data-change="load-file" hidden></label>
-            <button class="btn" type="button" data-action="ai-format">✨ Format with AI</button>
+            <button class="btn" type="button" data-action="ai-format" data-ai-only ${aiOn ? '' : 'hidden'}>✨ Format with AI</button>
             <span class="muted small" id="parseCount"></span>
           </div>
-          <p class="muted small">Optional: AI can tidy up your own notes into the format that makes the best quiz questions. It keeps your facts and words, and you choose which version to keep.</p>
+          <p class="muted small" data-ai-only ${aiOn ? '' : 'hidden'}>AI will tidy your notes into the format that makes the best quiz questions. It keeps your facts and words, and you choose which version to keep.</p>
           <div id="aiPanel" class="ai-panel" hidden></div>
           <div id="parsePreview" class="preview"></div>
           <div class="row"><button class="btn primary" type="submit">${n ? 'Save changes' : 'Save notes & build quiz'}</button><a class="btn" href="${n ? '#note--' + n.id : '#notes'}">Cancel</a></div>
@@ -313,7 +319,7 @@ Include every key vocabulary word, every formula, and at least 10 practice quest
   }
 
   /* ---------- Format with AI (js/ai-format.js) ---------- */
-  const AI = { ctl: null, result: '', original: null };
+  const AI = { ctl: null, result: '', original: null, appliedText: null };
   function aiPanel(html) { const p = document.getElementById('aiPanel'); if (!p) return null; p.hidden = !html; p.innerHTML = html || ''; return p; }
   function aiCompare(form) {
     const mine = form.content.value, theirs = AI.result;
@@ -340,6 +346,7 @@ Include every key vocabulary word, every formula, and at least 10 practice quest
   function aiApply(form) {
     AI.original = form.content.value;
     form.content.value = AI.result;
+    AI.appliedText = AI.result;
     previewNotes(form.content);
     aiPanel(`<div class="ai-head"><b>✓ Using the formatted version</b></div><p class="small">Review it above, then save. Changed your mind?</p><div class="row"><button class="btn small" type="button" data-action="ai-undo">Undo: bring back my notes</button></div>`);
     toast('Formatted notes added. Review them, then save.');
@@ -629,6 +636,7 @@ service cloud.firestore {
           <h2>Settings</h2>
           <label>Name<input name="name" value="${esc(p.name)}" maxlength="40" required></label>
           <label>Default practice length<select name="quizLength">${[5, 10, 15, 20].map((n) => `<option ${n === p.settings.quizLength ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
+          <label>When I add notes<select name="aiFormat"><option value="off" ${p.settings.aiFormat === 'on' ? '' : 'selected'}>📝 Keep my notes as I wrote them</option><option value="on" ${p.settings.aiFormat === 'on' ? 'selected' : ''}>✨ Let AI format my notes</option></select></label>
           <label>Max cards per daily review<select name="dailyLimit">${[10, 15, 25, 40, 60, 100].map((n) => `<option ${n === p.settings.dailyLimit ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
           <button class="btn primary" type="submit">Save</button>
         </form>
@@ -920,7 +928,12 @@ service cloud.firestore {
     signup: (f) => authSubmit(f, () => window.MSG.Accounts.signUp(f.name.value.trim(), f.email.value.trim(), f.password.value), 'Account created. Welcome!'),
     reset: (f) => authSubmit(f, () => window.MSG.Accounts.resetPassword(f.email.value.trim()), 'Reset link sent. Check your email (and your spam folder).'),
     'create-profile': (f) => { Store.createProfile(f.name.value); toast('Welcome, ' + Store.current().name + '!'); go('#dashboard'); },
-    'save-note': (f) => {
+    'save-note': async (f) => {
+      const aiOn = (f.querySelector('input[name=aiMode]:checked') || {}).value === 'on';
+      if (aiOn && f.content.value.trim() && f.content.value !== AI.appliedText) {
+        const formatFirst = await ask('You chose to let AI format these notes, but they haven\'t been formatted yet. Format them first?', '✨ Format with AI first', { primary: true, cancel: 'Save as I wrote them' });
+        if (formatFirst) { const b = f.querySelector('[data-action=ai-format]'); if (b) actions['ai-format'](b); return; }
+      }
       const fields = { title: f.title.value.trim(), course: f.course.value.trim(), categoryId: f.categoryId.value, content: f.content.value };
       const cards = parseNotes(fields.content, { title: fields.title });
       let note;
@@ -950,7 +963,7 @@ service cloud.firestore {
       const c = Library.get(f.dataset.id);
       startQuiz(c.name + ' practice', Quiz.forCategory(c.id, Number(f.n.value), d), { back: '#category--' + c.id });
     },
-    settings: (f) => { Store.renameProfile(f.name.value); Store.updateSettings({ quizLength: Number(f.quizLength.value), dailyLimit: Number(f.dailyLimit.value) }); toast('Saved'); route(); },
+    settings: (f) => { Store.renameProfile(f.name.value); Store.updateSettings({ quizLength: Number(f.quizLength.value), dailyLimit: Number(f.dailyLimit.value), aiFormat: f.aiFormat.value === 'on' ? 'on' : 'off' }); toast('Saved'); route(); },
     'answer-input': (f) => { const v = f.answer.value; if (!v.trim()) { f.answer.focus(); return; } answer(Quiz.check(session.questions[session.i], v), v); }
   };
 
@@ -981,6 +994,13 @@ service cloud.firestore {
   });
   document.addEventListener('change', (e) => {
     const t = e.target;
+    if (t.dataset.change === 'ai-mode') {
+      const on = t.value === 'on';
+      Store.updateSettings({ aiFormat: on ? 'on' : 'off' });
+      t.closest('form').querySelectorAll('[data-ai-only]').forEach((x) => { x.hidden = !on; });
+      if (!on) aiPanel('');
+      return;
+    }
     if (!t.dataset.change || !t.files || !t.files[0]) return;
     const file = t.files[0];
     const reader = new FileReader();
