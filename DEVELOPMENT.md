@@ -102,6 +102,10 @@ self-contained page with every script, style and KaTeX font inlined, and Firebas
 
 > ⚠️ **Watch out:** Never use `confirm()`, `alert()` or `prompt()`: claude.ai never shows them, and `confirm()` silently returns false. Use `ask()` in `js/app.js`, which shows an in-page dialog. File downloads go through `saveFile()`, which uses the `downloads` capability inside claude.ai and a normal download link elsewhere.
 
+> ⚠️ **Watch out:** Saving can report its status before `js/app.js` has loaded (claude.ai's account can answer within the same tick). `status()` in `js/sync.js` stores the latest one in `MSG.syncStatus`, and `js/app.js` shows it on start; without that the footer wrongly says "saved in this browser".
+
+> ⚠️ **Watch out:** Screens that describe saving must check where notes go: `savedToAccount()` and `accountBox()` in `js/app.js` (claude.ai account, Firebase account, or this browser only). The Firebase setup page explains itself away inside claude.ai, where Firebase cannot run.
+
 > ⚠️ **Watch out:** Inside claude.ai each account also gets its own browser copy (`mathStudyGuide.v1:claude-<id>`), and nothing is loaded until the account is known (`MSG.Sync.loading` shows "Loading…"). Without this, on a shared computer the second person would see the first person's notes, and the "newer copy wins" rule would upload them into the second person's account.
 
 > ⚠️ **Watch out:** Account sync keeps whichever copy has the newer `updatedAt` (set on every save). Editing on two devices while one is offline keeps only the later device's changes. Each save writes new chunk ids before switching the manifest, so an interrupted save never corrupts the saved copy; do not "simplify" that into overwriting the same chunk ids.

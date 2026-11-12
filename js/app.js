@@ -476,6 +476,12 @@ service cloud.firestore {
 }`;
   function setupView() {
     const A = window.MSG.Accounts;
+    if (window.MSG.Sync && window.MSG.Sync.inClaude) return `
+      <div class="page-head"><div><a href="#profile" class="muted small">← Back</a><h1>Student accounts</h1>
+      <p class="muted">Nothing to set up here: this version already gives every person their own account.</p></div></div>
+      <div class="card stack" style="max-width:760px"><p>On claude.ai, each person signs in with their own claude.ai account, and their notes are saved privately to it. Nobody else can see them, and they follow the person to any device.</p>
+      <p>To let other people use it, open the page's <b>Share</b> menu and give them <b>Contributor</b> access.</p>
+      <p class="muted small">The Firebase setup is only for the public website on GitHub Pages.</p></div>`;
     const on = A && A.enabled;
     const step = (n, title, body) => `<li class="setup-step"><span class="step-num" aria-hidden="true">${n}</span><div class="stack"><h3>${title}</h3>${body}</div></li>`;
     const copyBox = (id, text) => `<pre class="ai-prompt" id="${id}">${esc(text)}</pre><button class="btn small" type="button" data-action="copy-text" data-target="${id}">Copy</button>`;
@@ -513,8 +519,14 @@ service cloud.firestore {
     return { cfg, problems };
   }
 
+  function savedToAccount() {
+    const A = window.MSG.Accounts, Sy = window.MSG.Sync;
+    return !!((Sy && Sy.mode === 'claude') || (A && A.user));
+  }
   function accountBox() {
-    const A = window.MSG.Accounts;
+    const A = window.MSG.Accounts, Sy = window.MSG.Sync;
+    if (Sy && Sy.mode === 'claude') return '<h2>Your account</h2><p class="small">Your notes are saved privately to your claude.ai account. Only you can see them, and they follow you to any device where you sign in to claude.ai.</p>';
+    if (Sy && Sy.inClaude) return '<h2>Your account</h2><p class="small">Your notes are kept in this browser only, because this page can\'t save to your claude.ai account. Ask the person who shared it for <b>Contributor</b> access, or sign in to claude.ai, to save them to your account.</p>';
     if (!A || !A.enabled) return '<h2>Student accounts</h2><p class="small">Accounts are off: notes save only in each browser. Turn them on so every student gets their own account that saves everywhere.</p><div class="row"><a class="btn" href="#setup">Set up student accounts</a></div>';
     if (!A.user) return '';
     return `<h2>Account</h2><p class="small">Logged in as <b>${esc(A.user.email || '')}</b>.</p><div class="row"><button class="btn" data-action="log-out">Log out</button></div>`;
@@ -535,7 +547,7 @@ service cloud.firestore {
         <div class="card stack">
           ${accountBox()}
           <h2>Backup & devices</h2>
-          <p class="small">${window.MSG.Accounts && window.MSG.Accounts.user ? 'Your notes are saved to your account. You can also download a backup file to keep your own copy.' : 'Your notes are stored in this browser. Download a backup to keep them safe or to move them to another computer or phone.'}</p>
+          <p class="small">${savedToAccount() ? 'Your notes are saved to your account. You can also download a backup file to keep your own copy.' : 'Your notes are stored in this browser. Download a backup to keep them safe or to move them to another computer or phone.'}</p>
           <div class="row"><button class="btn" data-action="export">⬇️ Download backup</button><label class="btn">⬆️ Import backup<input type="file" accept=".json,application/json" data-change="import-backup" hidden></label></div>
           <h2>Profiles</h2>
           <div class="row"><a class="btn" href="#welcome">Switch / add profile</a><button class="btn danger" data-action="delete-profile">Delete this profile</button></div>
@@ -870,6 +882,7 @@ service cloud.firestore {
     const f = document.getElementById('syncStatus');
     if (f) { f.textContent = SYNC_TEXT[st] || SYNC_TEXT.local; f.dataset.state = st; }
   };
+  if (window.MSG.syncStatus) window.MSG.onSyncStatus(window.MSG.syncStatus); // a status sent before this script ran
   window.MSG.onCloudLoad = () => { if (!location.hash.startsWith('#quiz')) route(); else toast('Your saved notes were loaded.'); };
   window.addEventListener('hashchange', route);
   window.addEventListener('storage', () => { Store.reload(); route(); });

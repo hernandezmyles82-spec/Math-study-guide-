@@ -238,8 +238,8 @@
   const CAPITALS = [ // country, capital, continent
     ['France', 'Paris', 'Europe'], ['Germany', 'Berlin', 'Europe'], ['Italy', 'Rome', 'Europe'], ['Spain', 'Madrid', 'Europe'], ['United Kingdom', 'London', 'Europe'], ['Ireland', 'Dublin', 'Europe'],
     ['Portugal', 'Lisbon', 'Europe'], ['Greece', 'Athens', 'Europe'], ['Poland', 'Warsaw', 'Europe'], ['Sweden', 'Stockholm', 'Europe'], ['Norway', 'Oslo', 'Europe'], ['Ukraine', 'Kyiv', 'Europe'],
-    ['Russia', 'Moscow', 'Europe'], ['Japan', 'Tokyo', 'Asia'], ['China', 'Beijing', 'Asia'], ['India', 'New Delhi', 'Asia'], ['South Korea', 'Seoul', 'Asia'], ['Thailand', 'Bangkok', 'Asia'],
-    ['Vietnam', 'Hanoi', 'Asia'], ['Philippines', 'Manila', 'Asia'], ['Pakistan', 'Islamabad', 'Asia'], ['Saudi Arabia', 'Riyadh', 'Asia'], ['Iran', 'Tehran', 'Asia'], ['Turkey', 'Ankara', 'Asia'],
+    ['Japan', 'Tokyo', 'Asia'], ['China', 'Beijing', 'Asia'], ['India', 'New Delhi', 'Asia'], ['South Korea', 'Seoul', 'Asia'], ['Thailand', 'Bangkok', 'Asia'],
+    ['Vietnam', 'Hanoi', 'Asia'], ['Philippines', 'Manila', 'Asia'], ['Pakistan', 'Islamabad', 'Asia'], ['Saudi Arabia', 'Riyadh', 'Asia'], ['Iran', 'Tehran', 'Asia'], 
     ['Egypt', 'Cairo', 'Africa'], ['Kenya', 'Nairobi', 'Africa'], ['Nigeria', 'Abuja', 'Africa'], ['Ethiopia', 'Addis Ababa', 'Africa'], ['Ghana', 'Accra', 'Africa'], ['Morocco', 'Rabat', 'Africa'],
     ['Canada', 'Ottawa', 'North America'], ['Mexico', 'Mexico City', 'North America'], ['United States', 'Washington, D.C.', 'North America'], ['Cuba', 'Havana', 'North America'],
     ['Brazil', 'Brasília', 'South America'], ['Argentina', 'Buenos Aires', 'South America'], ['Peru', 'Lima', 'South America'], ['Chile', 'Santiago', 'South America'], ['Colombia', 'Bogotá', 'South America'],

@@ -2,11 +2,22 @@
 
 A website that turns **notes for any subject** into quizzes: math, science, history, English, languages, anything. Paste notes from class, a study guide, or from ChatGPT, Claude or any other AI. The site saves them under your profile, builds study cards, quizzes you over time with spaced repetition, and helps you cram before a quiz or test. No notes? Practice **53 built-in topics across 6 subjects**, from arithmetic to topology, biology to world history, grammar to Spanish.
 
-**Live site:** https://hernandezmyles82-spec.github.io/universal-study-guide/
+## Use it
+
+- **Main version (claude.ai):** https://claude.ai/artifact/UKoHcpR26SUxNA5ccNJ1vR
+  Everyone signs in with their own claude.ai account (free works). Their notes and progress are saved
+  privately to that account: nobody else, including the page's owner, can see them, and they follow the
+  person to any device. To share it, open the link → **Share** → give people **Contributor** access
+  (Viewers can use it, but their notes stay in their own browser).
+- **Public website (GitHub Pages):** https://hernandezmyles82-spec.github.io/universal-study-guide/
+  No sign-in; notes are saved in each visitor's browser. Optional email/password accounts can be
+  turned on with Firebase (see [FIREBASE-SETUP.md](FIREBASE-SETUP.md)).
+
+Both versions are built from the same code (`python3 tools/build-artifact.py` makes the claude.ai page).
 
 ## Features
 
-- **Profiles**: each student has their own notes, cards and progress (saved in the browser).
+- **Profiles**: each student has their own notes, cards and progress (saved to their claude.ai account on the main version, or in the browser on the public website).
 - **Notes → study cards**: paste notes or upload a `.txt` / `.md` file. The site recognizes:
   - `## Topic` headings, `Term: definition`, `Formula name: formula`, `X is defined as / means / is called ...`
   - fill-in-the-blank questions from **bold** words, dates and years, and names of people, places, events and documents

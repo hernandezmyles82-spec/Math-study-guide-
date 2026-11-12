@@ -58,11 +58,11 @@
     if (engine) { engine.stop(); engine = null; }
     A.user = user ? { uid: user.uid, email: user.email, name: user.displayName || '' } : null;
     A.ready = true; A.loaded = false;
-    if (!user) { Store.useAccount(null); if (MSG.onSyncStatus) MSG.onSyncStatus('signedout'); rerender(); return; }
+    if (!user) { Store.useAccount(null); MSG.syncStatus = 'signedout'; if (MSG.onSyncStatus) MSG.onSyncStatus('signedout'); rerender(); return; }
     Store.useAccount(user.uid);
     rerender(); // show the copy kept in this browser right away
     engine = MSG.SyncEngine(backendFor(user.uid), { isFatal: (e) => e && e.code === 'permission-denied' });
-    try { await engine.load(); } catch (e) { if (MSG.onSyncStatus) MSG.onSyncStatus('error'); }
+    try { await engine.load(); } catch (e) { MSG.syncStatus = 'error'; if (MSG.onSyncStatus) MSG.onSyncStatus('error'); }
     if (!A.user || A.user.uid !== user.uid) return; // signed out meanwhile
     if (!Store.current()) Store.createProfile(A.user.name || (user.email || 'Student').split('@')[0]);
     A.loaded = true;
