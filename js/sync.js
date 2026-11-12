@@ -96,14 +96,27 @@
   root.MSG.syncTimeout = timeout;
 
   /* ---------- claude.ai account (when the site runs as a claude.ai artifact) ---------- */
+  /* Each claude.ai account gets its own browser copy (Store.useAccount('claude-' + id)), so on a shared
+     computer one person never sees, or uploads into their account, the notes of whoever used it before.
+     Until the account is known nothing is loaded (Sync.loading); visitors without an account fall back
+     to the shared browser copy. */
+  const Sync = { start: startClaude, loading: false };
+  const inClaude = !!(root.claude && typeof root.claude.use === 'function') && !root.MSG_FIREBASE_CONFIG;
+  if (inClaude) { Sync.loading = true; Store.useAccount(null); }
+  function settle(uid) {
+    if (uid) Store.useAccount('claude-' + uid); else Store.useBrowserOnly();
+    Sync.loading = false;
+    if (root.MSG.onCloudLoad) root.MSG.onCloudLoad();
+  }
+
   async function startClaude() {
-    if (!root.claude || typeof root.claude.use !== 'function') return;
-    if (root.MSG_FIREBASE_CONFIG) return; // website accounts take over
+    if (!inClaude) return;
     status('connecting');
     let db = null, user = null, uid = null;
     try { [db, user] = await Promise.all([root.claude.use('db'), root.claude.use('user')]); } catch (e) { /* treated as unavailable */ }
     if (db && user) { try { uid = await user.id(); } catch (e) { uid = null; } }
-    if (!db || !uid) { status('local'); return; }
+    if (!db || !uid) { settle(null); status('local'); return; }
+    settle(uid);
     const base = db.doc('data/users/' + uid + '/state');
     const chunks = base.collection('chunks');
     const engine = SyncEngine({
@@ -117,13 +130,14 @@
       isFatal: (e) => e && (e.code === 'invalid_argument' || e.code === 'not_granted' || e.code === 'revoked')
     });
     try {
-      if (await engine.load() && root.MSG.onCloudLoad) root.MSG.onCloudLoad();
+      await engine.load();
+      if (root.MSG.onCloudLoad) root.MSG.onCloudLoad();
     } catch (e) {
       engine.stop();
       status(e && (e.code === 'not_granted' || e.code === 'invalid_argument') ? 'local' : 'error');
     }
   }
 
-  root.MSG.Sync = { start: startClaude };
+  root.MSG.Sync = Sync;
   startClaude();
 })(typeof window !== 'undefined' ? window : globalThis);

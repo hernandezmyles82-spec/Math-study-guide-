@@ -46,6 +46,8 @@
     reload() { db = load(); },
     /* Switch whose data is loaded: a uid for a signed-in account, or null for nobody. */
     useAccount(uid) { KEY = uid ? BASE_KEY + ':' + uid : null; memory = null; db = load(); },
+    /* Back to the shared browser copy, for visitors without an online account. */
+    useBrowserOnly() { KEY = BASE_KEY; memory = null; db = load(); },
     profiles() { return Object.values(db.profiles).sort((a, b) => a.createdAt - b.createdAt); },
     current() { return db.profiles[db.currentId] || null; },
     setCurrent(id) { db.currentId = id; save(); },

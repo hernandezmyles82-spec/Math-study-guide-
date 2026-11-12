@@ -102,6 +102,7 @@
   /* ---------- views ---------- */
   function authView() {
     const A = window.MSG.Accounts;
+    if (window.MSG.Sync && window.MSG.Sync.loading) return '<div class="card empty"><p>Loading…</p><p class="muted">Getting your notes ready.</p></div>';
     if (A.error) return `<div class="card empty"><p>⚠️ ${esc(A.error)}</p></div>`;
     if (!A.ready || A.user) return '<div class="card empty"><p>Loading…</p><p class="muted">Getting your notes ready.</p></div>';
     const tab = sessionStorageGet('authTab') || 'login';
@@ -668,7 +669,8 @@ service cloud.firestore {
     let name = parts[0] || 'dashboard';
     const arg = parts[1];
     const A = window.MSG.Accounts;
-    if (A && A.enabled && (!A.ready || !A.user || A.error)) name = 'auth';
+    if (window.MSG.Sync && window.MSG.Sync.loading) name = 'auth'; // claude.ai: shows "Loading…" until we know whose notes to load
+    else if (A && A.enabled && (!A.ready || !A.user || A.error)) name = 'auth';
     else if (A && A.enabled && !A.loaded) name = 'auth'; // shows "Loading…" while the account's notes arrive
     else if (!Store.current() && name !== 'welcome' && name !== 'setup') name = 'welcome';
     const view = views[name] || notFound;
