@@ -385,6 +385,9 @@
     }
   ]);
 
+  // Shared with js/generators-more.js.
+  root.MSG.SubjectKit = { yearQuestions, vocabQuestions, molarMass, sub, others };
+
   /* ---------- Computer science ---------- */
   G['cs-basics'] = [
     () => { const v = ri(1, 255); return num(`Convert binary ${v.toString(2)} to decimal.`, v, 'Add the place values (1, 2, 4, 8, …) where there is a 1.'); },

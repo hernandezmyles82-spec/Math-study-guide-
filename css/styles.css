@@ -338,3 +338,20 @@ details summary { cursor: pointer; font-weight: 650; }
 h3.level { font-size: .95rem; margin: 1rem 0 .6rem; }
 .group-subject { font-weight: 700; margin-top: .75rem; }
 .group-subject:first-child { margin-top: 0; }
+
+/* ---------- levels & courses ---------- */
+.view-tabs { display: flex; gap: .25rem; border-bottom: 1px solid var(--border); margin-bottom: .9rem; }
+.view-tab { border: 0; background: none; font: inherit; font-weight: 700; color: var(--muted); padding: .6rem 1rem; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.view-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+.view-tab:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.band { display: inline-block; align-self: flex-start; font-size: .72rem; font-weight: 700; letter-spacing: .02em; padding: .08rem .5rem; border-radius: 999px; margin: .15rem 0; background: var(--surface-2); color: var(--muted); }
+.band-0 { background: var(--good-soft); color: var(--good); }
+.band-3 { background: var(--primary-soft); color: var(--primary); }
+.band-4 { background: var(--bad-soft); color: var(--bad); }
+.prog-ap, .prog-ib { font-size: .95rem; font-weight: 900; letter-spacing: .02em; }
+.prog-ap { background: var(--primary-soft); color: var(--primary); }
+.prog-ib { background: var(--good-soft); color: var(--good); }
+.prog-badge { display: inline-block; font-size: .8em; padding: .05rem .45rem; border-radius: 8px; vertical-align: .1em; }
+.units { margin: 0 0 1rem; padding-left: 1.4rem; display: grid; gap: .35rem; }
+.topic-links { display: flex; flex-wrap: wrap; gap: .45rem; }
+.topic-links .chip-btn { text-decoration: none; }

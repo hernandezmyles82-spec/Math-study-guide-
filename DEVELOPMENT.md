@@ -63,6 +63,14 @@ note editor and Test Prep. Practice questions for a category id live in `MSG.Gen
 (`js/generators.js` for math, `js/generators-subjects.js` for the rest); the test suite requires every
 category to have some.
 
+Topics also have a grade `band` (0 Elementary … 4 College; `Library.BANDS`), set in the `BAND` map at the end of `js/library-more.js`; `groups()` sorts each level's topics by band. `Library.addCategories(subject, raw, newLevels)` adds topics (and new levels, first or last) to an existing subject.
+
+AP and IB courses live in `js/courses.js`: each has `units` (from the College Board course descriptions and IB subject guides) and `topics` (built-in topic ids). `Quiz.forCourse` spreads a quiz across those topics. Course pages are `#course--<id>`.
+
+> ⚠️ **Watch out:** A new topic needs an entry in the `BAND` map (the tests require every subject to reach from Elementary to AP/IB) and practice questions in `MSG.Generators.G[id]`. A course may only link topic ids that exist; the tests check both.
+
+> ⚠️ **Watch out:** The tests reject any question containing "NaN" as a whole word (a broken number). Chemical formulas like NaNO₃ are fine because the check uses word boundaries; keep it that way.
+
 > ⚠️ **Watch out:** The site was renamed from Math Study Guide to Universal Study Guide, but the storage key stays `mathStudyGuide.v1` (and `mathStudyGuide.v1:<uid>` with accounts). Renaming it would make every student's saved notes disappear.
 
 > ⚠️ **Watch out:** In a category quiz, wrong answer choices come from the same subject (`forCategory` in `js/quiz.js`). A quiz built from notes never borrows another subject's definitions; with too few cards it uses typed or flashcard questions instead.

@@ -360,6 +360,10 @@ Include every key vocabulary word, every formula, and at least 10 practice quest
     const upcoming = Store.upcomingExams();
     const past = p.exams.filter((e) => U.daysUntil(e.date) < 0);
     const tomorrow = U.dateKey(Date.now() + 86400000);
+    let preset = null; // from a course page's "Plan a test for this course"
+    try { preset = JSON.parse(sessionStorageGet('examPreset') || 'null'); } catch (e) { preset = null; }
+    if (preset) sessionStorageSet('examPreset', '');
+    const presetCats = preset ? preset.cats : [];
     return `
       <div class="page-head"><div><h1>Test Prep</h1><p class="muted">Add your quiz or test date. We'll quiz you on the right notes and focus on what you miss.</p></div></div>
       <div class="grid editor">
@@ -369,13 +373,13 @@ Include every key vocabulary word, every formula, and at least 10 practice quest
         </div>
         <form class="card stack" data-form="add-exam">
           <h2>+ Add a test or quiz</h2>
-          <label>What is it?<input name="title" required maxlength="80" placeholder="e.g. Chapter 5 Quiz"></label>
+          <label>What is it?<input name="title" required maxlength="80" placeholder="e.g. Chapter 5 Quiz" value="${preset ? esc(preset.title) : ''}"></label>
           <label>Date<input name="date" type="date" required value="${tomorrow}"></label>
           <fieldset><legend>Which of my notes are on it?</legend>
             ${p.notes.length ? p.notes.map((n) => `<label class="check"><input type="checkbox" name="noteIds" value="${n.id}"> ${esc(n.title)}</label>`).join('') : '<p class="muted small">No notes yet. <a href="#notes-new">Add notes</a> or choose topics below.</p>'}
           </fieldset>
           <fieldset><legend>Topics on it (adds practice questions)</legend>
-            <div class="scroll-box">${Library.groups().map((g) => `<div class="group-subject">${g.icon} ${esc(g.subject)}</div>` + g.levels.map((l) => (g.subject === l.level ? '' : `<div class="muted small group-label">${esc(l.level)}</div>`) + l.cats.map((c) => `<label class="check"><input type="checkbox" name="categoryIds" value="${c.id}"> ${c.icon} ${esc(c.name)}</label>`).join('')).join('')).join('')}</div>
+            <div class="scroll-box">${Library.groups().map((g) => `<div class="group-subject">${g.icon} ${esc(g.subject)}</div>` + g.levels.map((l) => (g.subject === l.level ? '' : `<div class="muted small group-label">${esc(l.level)}</div>`) + l.cats.map((c) => `<label class="check"><input type="checkbox" name="categoryIds" value="${c.id}" ${presetCats.includes(c.id) ? 'checked' : ''}> ${c.icon} ${esc(c.name)}</label>`).join('')).join('')).join('')}</div>
           </fieldset>
           <button class="btn primary" type="submit">Add test</button>
         </form>
@@ -404,29 +408,77 @@ Include every key vocabulary word, every formula, and at least 10 practice quest
     </div>`;
   }
 
+  const BAND_SHORT = ['Elementary', 'Middle school', 'High school', 'AP & IB', 'College'];
   function categoriesView() {
     const p = Store.current();
+    const Courses = window.MSG.Courses;
+    const view = sessionStorageGet('catView') === 'courses' ? 'courses' : 'topics';
     const q = (sessionStorageGet('catFilter') || '').toLowerCase();
     const groups = Library.groups();
     let subj = sessionStorageGet('subject') || 'all';
     if (subj !== 'all' && !groups.some((g) => g.subject === subj)) subj = 'all';
-    const chips = `<div class="subject-chips" role="group" aria-label="Subject">${[{ subject: 'all', icon: '✨' }].concat(groups).map((g) => `<button class="chip-btn ${subj === g.subject ? 'active' : ''}" data-action="pick-subject" data-subject="${esc(g.subject)}" aria-pressed="${subj === g.subject}">${g.icon} ${g.subject === 'all' ? 'All subjects' : esc(g.subject)}</button>`).join('')}</div>`;
-    const match = (c) => !q || (c.name + ' ' + c.blurb + ' ' + c.subject + ' ' + c.concepts.map((k) => k.term).join(' ')).toLowerCase().includes(q);
-    const total = Library.categories.length;
+    const bandSel = sessionStorageGet('band') || 'all';
+    const tabs = `<div class="view-tabs" role="tablist"><button class="view-tab ${view === 'topics' ? 'active' : ''}" role="tab" aria-selected="${view === 'topics'}" data-action="cat-view" data-view="topics">📚 Topics (${Library.categories.length})</button><button class="view-tab ${view === 'courses' ? 'active' : ''}" role="tab" aria-selected="${view === 'courses'}" data-action="cat-view" data-view="courses">🎓 AP &amp; IB courses (${Courses.list.length})</button></div>`;
+    const subjChips = `<div class="subject-chips" role="group" aria-label="Subject">${[{ subject: 'all', icon: '✨' }].concat(groups).map((g) => `<button class="chip-btn ${subj === g.subject ? 'active' : ''}" data-action="pick-subject" data-subject="${esc(g.subject)}" aria-pressed="${subj === g.subject}">${g.icon} ${g.subject === 'all' ? 'All subjects' : esc(g.subject)}</button>`).join('')}</div>`;
+    const head = (title, sub) => `<div class="page-head"><div><h1>${title}</h1><p class="muted">${sub}</p></div>
+      <input class="search" type="search" placeholder="${view === 'courses' ? 'Search courses…' : 'Search topics…'}" value="${esc(q)}" data-input="filter-cats" aria-label="Search"></div>`;
+
+    if (view === 'courses') {
+      const prog = sessionStorageGet('program') || 'all';
+      const progChips = `<div class="subject-chips" role="group" aria-label="Program">${[['all', 'AP & IB'], ['AP', 'AP only'], ['IB', 'IB only']].map(([v, l]) => `<button class="chip-btn ${prog === v ? 'active' : ''}" data-action="pick-program" data-program="${v}" aria-pressed="${prog === v}">${l}</button>`).join('')}</div>`;
+      const list = Courses.list.filter((c) => (prog === 'all' || c.program === prog) && (subj === 'all' || c.subject === subj) && (!q || (c.name + ' ' + c.units.join(' ')).toLowerCase().includes(q)));
+      const body = groups.map((g) => {
+        const cs = list.filter((c) => c.subject === g.subject);
+        if (!cs.length) return '';
+        return `<h2 class="subject-head">${g.icon} ${esc(g.subject)}</h2><div class="grid three">${cs.map((c) => `<a class="card cat-card" href="#course--${c.id}"><span class="cat-icon prog-${c.program.toLowerCase()}">${c.program}</span><span><b>${esc(c.name)}</b><span class="muted small">${c.units.length} units · practice from ${c.topics.length} topic${c.topics.length > 1 ? 's' : ''}</span></span></a>`).join('')}</div>`;
+      }).join('');
+      return head('Study Categories', `Every AP course and the IB Diploma subjects, each with its units and practice questions.`) + tabs + progChips + subjChips + (body || '<p class="muted">No courses match.</p>');
+    }
+
+    const bandChips = `<div class="subject-chips" role="group" aria-label="Level">${['all', 0, 1, 2, 3, 4].map((b) => `<button class="chip-btn ${String(bandSel) === String(b) ? 'active' : ''}" data-action="pick-band" data-band="${b}" aria-pressed="${String(bandSel) === String(b)}">${b === 'all' ? 'All levels' : BAND_SHORT[b]}</button>`).join('')}</div>`;
+    const match = (c) => (bandSel === 'all' || String(c.band) === String(bandSel)) && (!q || (c.name + ' ' + c.blurb + ' ' + c.subject + ' ' + c.concepts.map((k) => k.term).join(' ')).toLowerCase().includes(q));
     const body = groups.filter((g) => subj === 'all' || g.subject === subj).map((g) => {
       const levels = g.levels.map((l) => ({ level: l.level, cats: l.cats.filter(match) })).filter((l) => l.cats.length);
       if (!levels.length) return '';
       return `<h2 class="subject-head">${g.icon} ${esc(g.subject)}</h2>` + levels.map((l) => (l.level === g.subject ? '' : `<h3 class="level">${esc(l.level)}</h3>`) + `<div class="grid three">${l.cats.map(catCard).join('')}</div>`).join('');
     }).join('');
-    return `
-      <div class="page-head"><div><h1>Study Categories</h1><p class="muted">No notes needed: ${total} topics across ${groups.length} subjects, each with a reference sheet and practice questions.</p></div>
-      <input class="search" type="search" placeholder="Search topics…" value="${esc(q)}" data-input="filter-cats" aria-label="Search topics"></div>
-      ${chips}
-      ${body || '<p class="muted">No topics match your search.</p>'}`;
+    return head('Study Categories', `No notes needed: ${Library.categories.length} topics across ${groups.length} subjects, from elementary school to AP, IB and college.`) + tabs + bandChips + subjChips + (body || '<p class="muted">No topics match your search.</p>');
     function catCard(c) {
       const s = p.catStats[c.id];
-          return `<a class="card cat-card" href="#category--${c.id}"><span class="cat-icon">${c.icon}</span><span><b>${esc(c.name)}</b><span class="muted small">${esc(c.blurb)}</span>${s ? `<span class="small score ${pct(s.right, s.right + s.wrong) >= 80 ? 'good' : 'ok'}">${pct(s.right, s.right + s.wrong)}% · ${s.right + s.wrong} answered</span>` : ''}</span></a>`;
+      return `<a class="card cat-card" href="#category--${c.id}"><span class="cat-icon">${c.icon}</span><span><b>${esc(c.name)}</b><span class="band band-${c.band}">${BAND_SHORT[c.band]}</span><span class="muted small">${esc(c.blurb)}</span>${s ? `<span class="small score ${pct(s.right, s.right + s.wrong) >= 80 ? 'good' : 'ok'}">${pct(s.right, s.right + s.wrong)}% · ${s.right + s.wrong} answered</span>` : ''}</span></a>`;
     }
+  }
+
+  function courseView(id) {
+    const c = window.MSG.Courses.get(id);
+    if (!c) return notFound();
+    const p = Store.current();
+    const diff = Number(sessionStorageGet('difficulty') || 2);
+    const topics = c.topics.map((t) => Library.get(t)).filter(Boolean);
+    return `
+      <div class="page-head"><div><a href="#categories" class="muted small" data-action="cat-view" data-view="courses">← AP &amp; IB courses</a><h1><span class="prog-badge prog-${c.program.toLowerCase()}">${c.program}</span> ${esc(c.name)}</h1><p class="muted">${esc(c.subject)}${c.note ? ' · ' + esc(c.note) : ''}</p></div></div>
+      <div class="grid editor">
+        <div class="card">
+          <h2>📋 Course units</h2>
+          <ol class="units">${c.units.map((u) => `<li>${esc(u)}</li>`).join('')}</ol>
+          <h3>Topics that practice this course</h3>
+          <div class="topic-links">${topics.map((t) => `<a class="chip-btn" href="#category--${t.id}">${t.icon} ${esc(t.name)}</a>`).join('')}</div>
+        </div>
+        <div class="stack">
+          <form class="card stack" data-form="practice-course" data-id="${c.id}">
+            <h2>✍️ Practice this course</h2>
+            <p class="small muted">Questions drawn from all ${topics.length} topics above, new every time.</p>
+            <fieldset class="seg"><legend>Difficulty</legend>${['Easy', 'Medium', 'Hard'].map((l, i) => `<label><input type="radio" name="d" value="${i + 1}" ${diff === i + 1 ? 'checked' : ''}><span>${l}</span></label>`).join('')}</fieldset>
+            <label>Questions<select name="n">${[10, 15, 20, 30].map((n) => `<option ${n === Math.max(10, p.settings.quizLength) ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
+            <button class="btn primary" type="submit">Start practice</button>
+          </form>
+          <div class="card stack">
+            <h3>📅 Have a test coming up?</h3>
+            <p class="small">Add it to Test Prep with these topics already picked, then add your own notes for the unit.</p>
+            <button class="btn small" data-action="course-to-exam" data-id="${c.id}">Plan a test for this course</button>
+          </div>
+        </div>
+      </div>`;
   }
 
   function categoryView(id) {
@@ -437,7 +489,7 @@ Include every key vocabulary word, every formula, and at least 10 practice quest
     const added = Store.libraryCardsAdded(id);
     const diff = Number(sessionStorageGet('difficulty') || 2);
     return `
-      <div class="page-head"><div><a href="#categories" class="muted small">← Categories</a><h1>${c.icon} ${esc(c.name)}</h1><p class="muted">${esc(c.subject === c.level ? c.subject : c.subject + ' · ' + c.level)} · ${esc(c.blurb)}</p></div></div>
+      <div class="page-head"><div><a href="#categories" class="muted small">← Categories</a><h1>${c.icon} ${esc(c.name)}</h1><p class="muted"><span class="band band-${c.band}">${BAND_SHORT[c.band]}</span> ${esc(c.subject === c.level ? c.subject : c.subject + ' · ' + c.level)} · ${esc(c.blurb)}</p>${(() => { const cs = window.MSG.Courses.list.filter((k) => k.topics.includes(c.id)); return cs.length ? `<p class="small">Used in: ${cs.map((k) => `<a href="#course--${k.id}">${esc(k.name)}</a>`).join(', ')}</p>` : ''; })()}</div></div>
       <div class="grid editor">
         <div class="card">
           <h2>📖 Reference sheet</h2>
@@ -672,7 +724,7 @@ service cloud.firestore {
   /* ---------- router ---------- */
   const views = {
     auth: authView, setup: setupView, welcome, dashboard, notes: notesList, 'notes-new': () => noteEditor(null), note: noteView, 'note-edit': noteEditor,
-    exams: examsView, categories: categoriesView, category: categoryView, profile: settingsView, quiz: quizView
+    exams: examsView, categories: categoriesView, category: categoryView, course: courseView, profile: settingsView, quiz: quizView
   };
   function route() {
     // Routes are plain "#name" or "#name--id" so they also work inside a claude.ai artifact.
@@ -687,7 +739,7 @@ service cloud.firestore {
     else if (!Store.current() && name !== 'welcome' && name !== 'setup') name = 'welcome';
     const view = views[name] || notFound;
     $app.innerHTML = view(arg);
-    document.querySelectorAll('[data-nav]').forEach((a) => a.classList.toggle('active', a.dataset.nav === name || (name.startsWith('note') && a.dataset.nav === 'notes') || (name === 'category' && a.dataset.nav === 'categories')));
+    document.querySelectorAll('[data-nav]').forEach((a) => a.classList.toggle('active', a.dataset.nav === name || (name.startsWith('note') && a.dataset.nav === 'notes') || ((name === 'category' || name === 'course') && a.dataset.nav === 'categories')));
     const p = Store.current();
     document.getElementById('nav').style.visibility = p ? 'visible' : 'hidden';
     const chip = document.getElementById('profileChip');
@@ -705,6 +757,10 @@ service cloud.firestore {
 
   /* ---------- actions ---------- */
   const actions = {
+    'cat-view': (el) => { sessionStorageSet('catView', el.dataset.view); if (location.hash !== '#categories') go('#categories'); else route(); },
+    'pick-band': (el) => { sessionStorageSet('band', el.dataset.band); route(); },
+    'pick-program': (el) => { sessionStorageSet('program', el.dataset.program); route(); },
+    'course-to-exam': (el) => { const c = window.MSG.Courses.get(el.dataset.id); sessionStorageSet('examPreset', JSON.stringify({ title: c.name + ' test', cats: c.topics })); go('#exams'); },
     'pick-subject': (el) => { sessionStorageSet('subject', el.dataset.subject); route(); },
     'auth-tab': (el) => { sessionStorageSet('authTab', el.dataset.tab); route(); },
     'log-out': async (el) => {
@@ -803,6 +859,12 @@ service cloud.firestore {
       if (!noteIds.length && !categoryIds.length) { toast('Pick at least one set of notes or a topic.'); return; }
       Store.addExam({ title: f.title.value.trim(), date: f.date.value, noteIds, categoryIds });
       toast('Test added. Good luck! 🍀'); route();
+    },
+    'practice-course': (f) => {
+      const d = Number((f.querySelector('input[name=d]:checked') || { value: 2 }).value);
+      sessionStorageSet('difficulty', d);
+      const c = window.MSG.Courses.get(f.dataset.id);
+      startQuiz(c.name + ' practice', Quiz.forCourse(c, Number(f.n.value), d), { back: '#course--' + c.id });
     },
     practice: (f) => {
       const d = Number((f.querySelector('input[name=d]:checked') || { value: 2 }).value);
