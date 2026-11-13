@@ -32,6 +32,11 @@ Both versions are built from the same code (`python3 tools/build-artifact.py` ma
   - ✅ **True / False** quick rounds
   - 📝 **Practice test**: timed, no answers shown until the end, then a review of every question
   - ⏳ **Put in order**: timelines and step-by-step processes
+- **Upload PDF and Word files**: notes can come from a PDF, a Word (.docx) file, or a .txt/.md file, read right in the browser (nothing is uploaded anywhere).
+- **AI study guide from your notes**: on any note, AI writes a full guide (overview, key ideas, a concept map, worked examples, common mistakes, timelines, a self-check) using only what's in the notes.
+- **Written answers graded by AI**: answer exam-style questions in your own words; on the claude.ai version Claude grades them like a mark scheme (what earned credit, what's missing, a tip). On the public site you compare with the model answer.
+- **Study sheet**: everything for a topic or set of notes on one page, ready to print the night before.
+- **Light / dark switch** in the menu bar.
 - **Study guides**: every one of the 91 built-in topics has a full guide (overview, key ideas, worked examples, common mistakes, a self-check, and timelines), with 🔊 read aloud and 🖨️ print.
 - **Mistake notebook**: every missed question is saved to redo; answer it right and it leaves the notebook.
 - **Progress & badges**: study streak, a 5-week activity calendar, 13 badges, and mastery % for each topic.
@@ -98,12 +103,15 @@ js/generators-subjects.js  practice questions for the other subjects
 js/generators-more.js  practice questions for the topics in library-more.js
 js/quiz.js          builds quizzes from cards / categories / exams
 js/guides.js        study guide format (parser)
+js/file-text.js     reads PDF and Word files into notes
 js/guides-*.js      the study guide for every built-in topic, one file per subject
 js/modes.js         study-mode logic: flashcards, learn, matching, true/false, tests, put in order, badges
 js/study.js         study-mode screens, study guides, mistake notebook, progress page
 js/app.js           UI views and routing
 vendor/katex/       KaTeX math rendering (MIT license)
 vendor/fonts/       Inter and Bricolage Grotesque fonts (SIL Open Font License)
+vendor/pdfjs/       pdf.js 3.11.174 for reading PDFs (Apache 2.0)
+vendor/mammoth/     mammoth 1.8.0 for reading Word files (BSD 2-Clause)
 vendor/firebase/    Firebase SDK 10.12.2 (Apache 2.0)
 tests/              Node tests + sample notes
 DEVELOPMENT.md      how the code works + pitfalls to avoid when changing it

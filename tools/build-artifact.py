@@ -59,6 +59,11 @@ def main(out):
             parts.append(script('vendor/katex/katex.min.js', rd('vendor/katex/katex.min.js')))
             parts.append(script('vendor/katex/auto-render.min.js', rd('vendor/katex/auto-render.min.js')))
         parts.append(script(p, rd(p)))
+    # PDF and Word readers (js/file-text.js) run from these text blocks only when a file is uploaded.
+    for vid, path in (('pdfjs', 'vendor/pdfjs/pdf.min.js'), ('pdfworker', 'vendor/pdfjs/pdf.worker.min.js'), ('mammoth', 'vendor/mammoth/mammoth.browser.min.js')):
+        src = rd(path)
+        assert not re.search(r'</script', src, re.I), path + ' contains </script'
+        parts.append('<script type="text/plain" id="vendor-%s">%s</script>' % (vid, src))
     with open(out, 'w', encoding='utf-8') as f:
         f.write('\n'.join(parts) + '\n')
     print('wrote %s (%d KB)' % (out, os.path.getsize(out) // 1024))

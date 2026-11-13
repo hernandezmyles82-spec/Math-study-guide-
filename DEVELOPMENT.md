@@ -29,6 +29,7 @@ global `window.MSG` namespace (or `globalThis` under Node, so the tests can `req
 | `js/library.js` | `MSG.Library`: the categories and their reference-sheet concepts, written as one `String.raw` block parsed at load |
 | `js/generators.js` | `MSG.Generators`: per-category random problem generators keyed by the same category ids (`generate`, `js/generators.js:458`) |
 | `js/quiz.js` | `MSG.Quiz`: builds questions from cards, categories and exams; checks answers (`js/quiz.js:177`) |
+| `js/file-text.js` | `MSG.FileText`: reads uploaded PDF (pdf.js) and Word .docx (mammoth) files into notes in the browser. Loads the libraries only when needed (`loadVendor`) |
 | `js/guides.js` | `MSG.Guides`: parses the study-guide text format (`Guides.add(raw)`, `get(id)`) |
 | `js/guides-*.js` | The study guide for every built-in topic, keyed by topic id, one file per subject (`guides-math.js`, `guides-science.js`, `guides-history.js`, `guides-english.js`, `guides-languages.js`, `guides-cs-arts.js`; `guides-content.js` holds Derivatives and U.S. History). Loaded after `js/guides.js` and before `js/modes.js` |
 | `js/modes.js` | `MSG.Modes`: logic for the study modes (decks, true/false, matching, learn, practice test, put-in-order, badges, mastery). No HTML, so the tests can run it |
@@ -71,6 +72,10 @@ Every mode works on a **source**, which is also in the page address: `cat_<topic
 - **Learn** needs each card right twice in a row (choose, then type when the answer is short) and works in groups of 7.
 - **Put in order** uses a guide's `## Timeline` and `## In order:` lists, and year cards (`____` + a year) from notes.
 - **Mistake notebook**: `Study.record(q, correct)` is the one place an answer is saved (spaced repetition, topic stats, streak, notebook). A miss is added with `Store.addMistake(q)`; answering the same question right anywhere removes it.
+- **Written answers** (`#write--<src>`, `Modes.writtenQuestions`): exam-style questions with model answers, from a guide's "Check yourself" and from cards ("Explain what X means"); marks (1–3) come from the model answer's length. Inside claude.ai Claude grades the answer (`AIFormat.gradePrompt` / `parseGrade`, which checks and caps the reply); elsewhere the student compares with the model answer and scores themselves, with a prompt to paste into any AI chat. Less than full marks adds the question to the mistake notebook.
+- **AI study guides for notes:** the note page's "Study guide" tab asks AI (`AIFormat.guidePrompt`, only facts from the notes) for a guide in the same format as the built-in ones, plus a `## Concept map` section (`Center:` and `- Big idea: detail; detail`). It is saved on the note as `note.guide` (`Store.setNoteGuide`) and parsed when shown (`Modes.noteGuide`); its timeline, step lists and questions feed the order game and written answers. Outside claude.ai the student copies a prompt and pastes the answer back.
+- **Study sheet** (`#sheet--<src>`): key terms, key ideas, timeline and the self-check answers on one page.
+- **Light / dark switch:** the 🌓 button cycles device → light → dark and stores the choice in `localStorage` (`usg:theme`). "Match my device" never removes a `data-theme` that claude.ai set on load.
 - **Badges and mastery** are computed from saved data each time (`Modes.badges()`, `Modes.topicMastery(id)`): nothing extra is stored except `modesUsed`.
 - **Read aloud** uses the browser's speech (`speechSynthesis`), with LaTeX turned into words by `Study.speakable`. **Print** (public website only: claude.ai never opens the print dialog, so `printBtn()` hides it there) uses `@media print` in `css/styles.css` (`.no-print` hides buttons) and opens the self-check answers before printing.
 
@@ -79,6 +84,10 @@ Study guides are written in the `js/guides-*.js` files in the format documented 
 > ⚠️ **Watch out:** A new topic needs a guide too (the tests check it), and a new `js/guides-*.js` file must be added to `index.html` and to the `require` list in `tests/run-tests.js`.
 
 > ⚠️ **Watch out:** A guide is the student's main explanation of a topic, so every fact, date and worked answer in it must be right. When adding one, check it against the topic's reference sheet in `js/library*.js` (they must agree) and re-solve every worked example.
+
+> ⚠️ **Watch out:** AI replies are never inserted as HTML. A guide is parsed into text and shown through `fmt`/`md` (escaped); a grade is parsed as JSON and every field is checked, trimmed and escaped. Keep it that way: pasted answers on the public site can contain anything.
+
+> ⚠️ **Watch out:** pdf.js and mammoth are large (about 2 MB). On the website they load from `vendor/` only when a PDF or Word file is picked. The claude.ai build embeds them as `<script type="text/plain" id="vendor-…">` blocks that `loadVendor` runs on demand, and the pdf.js worker runs from a `blob:` URL; don't turn them into normal scripts, or every page load parses them.
 
 > ⚠️ **Watch out:** Timeline years must be different from each other (the order game needs one right answer). Write ranges as `1861–1865`, BCE dates as `3000 BCE`, and deep time as `4.6 billion years ago`; `Guides.yearOf` sorts them.
 

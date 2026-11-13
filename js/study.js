@@ -57,24 +57,30 @@
         ${b('truefalse', '✅', 'True / False', can(2), 'Needs at least 2 cards')}
         ${b('test', '📝', 'Practice test', can(2) || d.categoryIds.length > 0, 'Needs at least 2 cards')}
         ${opts.order === false ? '' : b('order', '⏳', 'Put in order', orders > 0, 'Needs a timeline or step list (in the study guide, or dates in your notes)')}
+        ${b('write', '✍️', 'Written answers', Modes.writtenQuestions(src, 1).length > 0, 'Needs cards with longer answers, or a study guide')}
+        ${b('sheet', '📄', 'Study sheet', can(1), 'Needs at least 1 card')}
       </div>
     </div>`;
   }
 
   /* ---------- study guide (topic page) ---------- */
-  function guideHtml(catId) {
-    const g = Guides.get(catId);
+  /* A built-in topic's guide (by id) or any parsed guide (a note's AI-made one), with its source for read aloud. */
+  function guideHtml(catIdOrGuide, opts) {
+    opts = opts || {};
+    const g = typeof catIdOrGuide === 'string' ? Guides.get(catIdOrGuide) : catIdOrGuide;
     if (!g) return '';
+    const src = opts.src || 'cat_' + g.id;
     const fmt = ui.fmt, md = ui.md;
     const parts = [];
     g.sections.forEach((s) => parts.push(`<section class="guide-sec"><h3>${esc(s.title)}</h3>${md(s.text)}</section>`));
+    if (g.map) parts.splice(Math.min(2, parts.length), 0, `<section class="guide-sec"><h3>Concept map</h3><div class="cmap"><div class="cmap-center">${fmt(g.map.center)}</div><div class="cmap-branches">${g.map.branches.map((b) => `<div class="cmap-branch"><b>${fmt(b.label)}</b>${b.items.length ? `<ul>${b.items.map((x) => `<li>${fmt(x)}</li>`).join('')}</ul>` : ''}</div>`).join('')}</div></div></section>`);
     if (g.examples.length) parts.splice(Math.min(2, parts.length), 0, `<section class="guide-sec"><h3>Worked examples</h3>${g.examples.map((e, i) => `<div class="example"><div class="ex-q"><b>Example ${i + 1}.</b> ${fmt(e.problem)}</div>${e.solution.length ? `<div class="ex-steps">${e.solution.map((x) => `<div>${fmt(x)}</div>`).join('')}</div>` : ''}${e.answer ? `<div class="ex-a"><b>Answer:</b> ${fmt(e.answer)}</div>` : ''}</div>`).join('')}</section>`);
     if (g.timeline.length) parts.push(`<section class="guide-sec"><h3>Timeline</h3><ol class="timeline">${g.timeline.map((t) => `<li><b>${esc(t.when)}</b> ${fmt(t.label)}</li>`).join('')}</ol></section>`);
     g.orders.forEach((o) => parts.push(`<section class="guide-sec"><h3>${esc(o.title)}</h3><ol>${o.items.map((x) => `<li>${fmt(x)}</li>`).join('')}</ol></section>`));
     if (g.check.length) parts.push(`<section class="guide-sec"><h3>Check yourself</h3>${g.check.map((c) => `<details class="check-q"><summary>${fmt(c.q)}</summary><div>${fmt(c.a)}</div></details>`).join('')}<p class="small muted no-print">Tap a question to see the answer.</p></section>`);
-    return `<div class="card guide" id="guide">
-      <div class="row spread"><h2>Study guide</h2><div class="row tight no-print">${speakBtn()}${printBtn()}</div></div>
-      ${parts.join('')}
+    return `<div class="card guide" id="guide" data-src="${esc(src)}">
+      <div class="row spread"><h2>${esc(opts.title || 'Study guide')}</h2><div class="row tight no-print">${speakBtn()}${printBtn()}</div></div>
+      ${opts.before || ''}${parts.join('')}${opts.after || ''}
     </div>`;
   }
 
@@ -294,7 +300,7 @@
       const front = box.querySelector('.flashcard');
       let text;
       if (front) text = (FC && fcVisible()[FC.i]) ? (FC.flipped ? fcVisible()[FC.i].back : fcVisible()[FC.i].front) : '';
-      else if (box.classList.contains('guide')) text = Guides.get(location.hash.split('--')[1]) ? guideText(location.hash.split('--')[1]) : box.textContent;
+      else if (box.classList.contains('guide')) text = guideText(Modes.guidesFor(box.dataset.src)[0]) || box.textContent;
       else text = currentQuestionText(box);
       speak(text);
     },
@@ -364,16 +370,181 @@
     const src = box.dataset && box.dataset.say;
     return [src || (prompt ? prompt.dataset.say || prompt.textContent : '')].concat(choices).join('. ');
   }
-  function guideText(id) {
-    const g = Guides.get(id);
+  function guideText(g) {
     if (!g) return '';
     const out = [];
     g.sections.forEach((s) => out.push(s.title + '. ' + s.text.replace(/^[-*]\s+/gm, '').replace(/^#+\s*/gm, '')));
     g.examples.forEach((e, i) => out.push('Example ' + (i + 1) + '. ' + e.problem + '. ' + e.solution.join('. ') + '. Answer: ' + e.answer));
     if (g.timeline.length) out.push('Timeline. ' + g.timeline.map((t) => t.when + ': ' + t.label).join('. '));
     g.orders.forEach((o) => out.push(o.title + '. ' + o.items.join('. ')));
+    if (g.map) out.push('Concept map. ' + g.map.center + '. ' + g.map.branches.map((b) => b.label + ': ' + b.items.join(', ')).join('. '));
     return out.join('\n');
   }
+
+  /* ---------- study sheet: everything on one page for the night before ---------- */
+  function sheetView(src) {
+    const d = Modes.deck(src);
+    if (!d) return ui.notFound();
+    const fmt = ui.fmt;
+    const guides = Modes.guidesFor(src);
+    const ideas = guides.map((g) => g.sections.find((x) => /key ideas/i.test(x.title))).filter(Boolean);
+    const timeline = [].concat(...guides.map((g) => g.timeline));
+    const checks = [].concat(...guides.map((g) => g.check));
+    return `<div class="page-head no-print"><div><a href="${d.back}" class="muted small">← ${esc(d.title)}</a><h1>Study sheet</h1><p class="muted">Everything on one page${canPrint() ? ', ready to print for the night before' : ''}.</p></div>${canPrint() ? '<button class="btn primary" type="button" data-action="print">🖨️ Print</button>' : ''}</div>
+      <article class="card sheet">
+        <h2 class="sheet-title">${esc(d.title)}</h2>
+        ${d.items.length ? `<h3>Key terms</h3><dl class="sheet-terms">${d.items.map((it) => `<div><dt>${fmt(it.front)}</dt><dd>${fmt(it.back)}</dd></div>`).join('')}</dl>` : ''}
+        ${ideas.length ? `<h3>Key ideas</h3>${ideas.map((x) => ui.md(x.text)).join('')}` : ''}
+        ${timeline.length ? `<h3>Timeline</h3><ol class="timeline">${timeline.slice().sort((a, b) => a.year - b.year).map((t) => `<li><b>${esc(t.when)}</b> ${fmt(t.label)}</li>`).join('')}</ol>` : ''}
+        ${checks.length ? `<h3>Quick quiz (answers included)</h3><ol class="sheet-qa">${checks.map((c) => `<li><span>${fmt(c.q)}</span> <b>${fmt(c.a)}</b></li>`).join('')}</ol>` : ''}
+      </article>`;
+  }
+
+  /* ---------- written answers, graded like an exam ---------- */
+  let WR = null;
+  function writeView(src) {
+    if (!WR || WR.src !== src) {
+      const d = Modes.deck(src);
+      if (!d) return ui.notFound();
+      const qs = Modes.writtenQuestions(src, 8);
+      if (!qs.length) return `<div class="card empty"><p>There aren't any questions with longer answers here yet.</p><a class="btn" href="${d.back}">Back</a></div>`;
+      WR = { src, title: d.title, back: d.back, qs, i: 0, results: [], state: 'answer', grade: null, answer: '', busy: false, error: '', ai: null };
+      Store.markMode('write');
+      const w = WR;
+      window.MSG.AIFormat.available().then((sm) => { w.ai = !!sm; const t = document.getElementById('writeAnswer'); if (WR === w && t && w.state === 'answer') { w.answer = t.value; ui.route(); } });
+    }
+    const total = WR.qs.reduce((n, q) => n + q.marks, 0);
+    const got = WR.results.reduce((n, r) => n + r.score, 0);
+    const head = `<div class="quiz-head"><div><b>✍️ Written answers: ${esc(WR.title)}</b><div class="muted small">${WR.i < WR.qs.length ? `Question ${WR.i + 1} of ${WR.qs.length} · ` : ''}${got} of ${WR.results.reduce((n, r) => n + r.max, 0)} marks so far</div></div><a class="btn small ghost" href="${WR.back}">Stop</a></div>
+      <div class="progress"><div style="width:${(100 * WR.i) / WR.qs.length}%"></div></div>`;
+    if (WR.i >= WR.qs.length) {
+      const pctScore = total ? Math.round((100 * got) / total) : 0;
+      return `<div class="quiz">${head}<div class="card summary"><h2>Done!</h2><div class="big-score ${pctScore >= 80 ? 'good' : pctScore >= 60 ? 'ok' : 'bad'}">${got} / ${total}</div><p>marks</p>
+        <div class="row center"><button class="btn primary" data-action="write-again">New questions</button><a class="btn" href="${WR.back}">Done</a></div></div>
+        <div class="card"><h2>Your answers</h2><div class="card-list">${WR.results.map((r, n) => `<div class="card-row"><div class="cr-main"><div class="cr-front"><b>${n + 1}.</b> ${ui.fmt(r.q.question)} <span class="chip">${r.score}/${r.max}</span></div><div class="small">You wrote: ${esc(r.answer)}</div><div class="cr-back">Model answer: ${ui.fmt(r.q.model)}</div></div></div>`).join('')}</div></div></div>`;
+    }
+    const q = WR.qs[WR.i];
+    let body;
+    if (WR.state === 'answer') {
+      body = `<form data-form="write-grade" class="stack">
+        <textarea id="writeAnswer" name="answer" rows="5" placeholder="Write your answer in full sentences…" aria-label="Your answer">${esc(WR.answer)}</textarea>
+        ${WR.error ? `<p class="form-error" role="alert">${esc(WR.error)}</p>` : ''}
+        <div class="row"><button class="btn primary" type="submit" ${WR.busy ? 'disabled' : ''}>${WR.busy ? '⏳ Grading…' : 'Grade my answer'}</button><button class="btn ghost" type="button" data-action="write-self">Check it myself</button></div>
+        <p class="small muted">${WR.ai === false ? 'AI grading isn\'t available on this website, so you\'ll compare your answer with the model answer (or paste it into any AI chat). On the claude.ai version, Claude grades it for you.' : WR.ai ? 'Claude grades it against the model answer from your study material.' : ''}</p>
+      </form>`;
+    } else if (WR.state === 'self') {
+      body = `<div class="flash-answer"><div class="muted small">Your answer</div><div>${esc(WR.answer) || '<i>(blank)</i>'}</div></div>
+        <div class="feedback"><div class="muted small">Model answer</div><div>${ui.fmt(q.model)}</div></div>
+        <p><b>How many marks did you earn?</b> Give yourself one for each point in the model answer you made.</p>
+        <div class="row">${Array.from({ length: q.marks + 1 }, (_, m) => `<button class="btn ${m === q.marks ? 'good' : m === 0 ? 'bad' : ''}" data-action="write-self-score" data-score="${m}">${m} / ${q.marks}</button>`).join('')}</div>
+        <details class="small"><summary>Grade it with an AI chat instead</summary><p class="small">Copy this and paste it into any AI chat, then score yourself from its answer.</p><pre class="ai-prompt" id="gradePrompt">${esc(window.MSG.AIFormat.gradePrompt({ question: q.question.replace(/\*\*/g, ''), model: q.model, answer: WR.answer || '(blank)', marks: q.marks }))}</pre><button class="btn small" type="button" data-action="copy-text" data-target="gradePrompt">Copy</button></details>`;
+    } else {
+      const g = WR.grade;
+      body = `<div class="flash-answer"><div class="muted small">Your answer</div><div>${esc(WR.answer)}</div></div>
+        <div class="feedback ${g.score === q.marks ? 'good' : 'bad'}"><b class="grade-score">${g.score} / ${q.marks} mark${q.marks === 1 ? '' : 's'}</b>
+          ${g.earned.length ? `<ul class="grade-list good">${g.earned.map((x) => `<li>✓ ${esc(x)}</li>`).join('')}</ul>` : ''}
+          ${g.missing.length ? `<ul class="grade-list bad">${g.missing.map((x) => `<li>✗ ${esc(x)}</li>`).join('')}</ul>` : ''}
+          ${g.tip ? `<div class="explain">💡 ${esc(g.tip)}</div>` : ''}
+          <details><summary>Model answer</summary><div>${ui.fmt(q.model)}</div></details>
+          <div class="row"><button class="btn primary" data-action="write-next" id="nextBtn">${WR.i + 1 >= WR.qs.length ? 'See results' : 'Next question →'}</button></div>
+        </div>`;
+    }
+    return `<div class="quiz">${head}<div class="card question"><span class="chip">${q.marks} mark${q.marks === 1 ? '' : 's'}</span><div class="prompt">${ui.fmt(q.question)}</div>${speakBtn()}${body}</div></div>`;
+  }
+  function writeRecord(q, score) {
+    const full = score === q.marks;
+    Store.recordActivity(score * 2 >= q.marks);
+    if (q.categoryId && !q.cardId) Store.recordCategory(q.categoryId, full);
+    if (q.cardId) Store.recordCard(q.cardId, full);
+    const mq = { kind: 'flash', prompt: q.question, answerDisplay: q.model, categoryId: q.categoryId || null, cardId: q.cardId || null, conceptId: q.conceptId || null };
+    if (!full) Store.addMistake(mq); else if (Store.clearMistake(mq)) Store.markMode('fixed');
+  }
+  async function writeGrade(answer) {
+    const q = WR.qs[WR.i];
+    WR.answer = answer; WR.error = '';
+    const AF = window.MSG.AIFormat;
+    const sample = await AF.available();
+    if (!sample) { WR.ai = false; WR.state = 'self'; ui.route(); return; }
+    WR.busy = true; ui.route();
+    try {
+      const res = await sample(AF.gradePrompt({ question: q.question.replace(/\*\*/g, ''), model: q.model, answer, marks: q.marks }), {});
+      const g = AF.parseGrade(res.text, q.marks);
+      if (!g) throw { code: 'unreadable' };
+      WR.grade = g; WR.state = 'graded';
+      WR.results.push({ q, answer, score: g.score, max: q.marks });
+      writeRecord(q, g.score);
+    } catch (e) {
+      WR.error = e && e.code === 'unreadable' ? 'The grade came back in a form the site couldn\'t read. Try again, or check it yourself.' : AF.message(e) + ' You can also check it yourself.';
+      if (AF.isPermanent(e)) WR.ai = false;
+    }
+    WR.busy = false; ui.route();
+  }
+
+  /* ---------- a note's AI-made study guide (the note page's "Study guide" tab) ---------- */
+  const NG = { ctl: null };
+  function noteGuideTab(note) {
+    const g = Modes.noteGuide(note);
+    const stale = g && note.updatedAt > note.guideAt;
+    const panel = '<div id="guidePanel" class="ai-panel" hidden></div>';
+    if (g) return guideHtml(g, { src: 'note_' + note.id, title: 'Study guide (made by AI from your notes)',
+      before: stale ? '<p class="small feedback bad no-print">Your notes changed after this guide was made. Make it again to include the changes.</p>' : '',
+      after: `<p class="small muted">AI built this only from your notes, but it can still make mistakes. Check anything important against your notes.</p><div class="row no-print"><button class="btn small" type="button" data-action="guide-make" data-id="${note.id}">✨ Make it again</button><button class="btn small ghost" type="button" data-action="guide-remove" data-id="${note.id}">Remove guide</button></div>${panel}` });
+    return `<div class="card stack"><h2>Turn these notes into a full study guide</h2>
+      <p>AI reads your notes and writes a study guide like the ones for built-in topics: an overview, key ideas, a concept map, worked examples, common mistakes, timelines and a self-check quiz. It uses <b>only what's in your notes</b>.</p>
+      <div class="row"><button class="btn primary" type="button" data-action="guide-make" data-id="${note.id}">✨ Make a study guide with AI</button></div>
+      <p class="small muted">On claude.ai, Claude writes it using your own Claude account (it asks your permission the first time). Elsewhere you'll get a prompt to paste into any AI chat.</p>
+      ${panel}</div>`;
+  }
+  function guidePanel(html) { const p = document.getElementById('guidePanel'); if (p) { p.hidden = !html; p.innerHTML = html || ''; } return p; }
+  function saveNoteGuide(id, text) {
+    const AF = window.MSG.AIFormat;
+    const clean = AF.cleanGuide(text);
+    const g = clean && Guides.parseOne('note_' + id, clean);
+    if (!g || !g.sections.length) { guidePanel(`<p class="small">That doesn't look like a study guide. It should start with "## Overview". Try again.</p><div class="row"><button class="btn small" type="button" data-action="guide-dismiss">Close</button></div>`); return false; }
+    Store.setNoteGuide(id, clean); Store.markMode('guide');
+    ui.toast('Study guide ready ✨'); ui.route(); return true;
+  }
+
+  Object.assign(actions, {
+    'write-self': (el) => { const f = el.closest('form'); WR.answer = f ? f.answer.value : WR.answer; WR.state = 'self'; ui.route(); },
+    'write-self-score': (el) => { const q = WR.qs[WR.i]; const score = Number(el.dataset.score); WR.results.push({ q, answer: WR.answer, score, max: q.marks }); writeRecord(q, score); actions['write-next'](); },
+    'write-next': () => { WR.i += 1; WR.state = 'answer'; WR.grade = null; WR.answer = ''; WR.error = ''; ui.route(); root.scrollTo(0, 0); },
+    'write-again': () => { WR = null; ui.route(); },
+    'guide-make': async (el) => {
+      const note = Store.note(el.dataset.id);
+      if (!note || !note.content.trim()) { ui.toast('These notes are empty.'); return; }
+      const AF = window.MSG.AIFormat;
+      if (note.content.length > AF.MAX_CHARS) { guidePanel('<p class="small">These notes are too long to turn into one guide. Split them into smaller sets of notes first.</p>'); return; }
+      const prompt = AF.guidePrompt(note.content, note.title);
+      const sample = await AF.available();
+      if (!sample) {
+        guidePanel(`<p class="small"><b>Use any AI chat:</b> copy this prompt (your notes are included), paste it into ChatGPT, Claude or another AI, then paste its answer below.</p><pre class="ai-prompt" id="guidePrompt">${esc(prompt)}</pre><div class="row"><button class="btn small" type="button" data-action="copy-text" data-target="guidePrompt">Copy prompt</button></div>
+          <textarea id="guidePaste" rows="6" placeholder="Paste the AI's study guide here"></textarea><div class="row"><button class="btn small primary" type="button" data-action="guide-use-pasted" data-id="${note.id}">Use this guide</button><button class="btn small ghost" type="button" data-action="guide-dismiss">Cancel</button></div>`);
+        return;
+      }
+      if (NG.ctl) NG.ctl.abort();
+      const ctl = NG.ctl = new AbortController();
+      guidePanel(`<div class="ai-head"><b>✨ Writing your study guide…</b><button class="btn small ghost" type="button" data-action="guide-stop">Stop</button></div><pre class="ai-out" id="guideOut">Reading your notes… (the first time, claude.ai asks you to allow this.)</pre>`);
+      try {
+        const res = await sample(prompt, { signal: ctl.signal, onText: ({ text }) => { const o = document.getElementById('guideOut'); if (o) o.textContent = text; } });
+        if (NG.ctl !== ctl) return;
+        NG.ctl = null;
+        saveNoteGuide(note.id, res.text);
+        if (res.truncated) ui.toast('The guide was cut short. Try splitting your notes into smaller sets.');
+      } catch (e) {
+        if (NG.ctl === ctl) NG.ctl = null;
+        if (e && e.code === 'cancelled') { guidePanel(''); return; }
+        guidePanel(`<p class="small">${esc(AF.message(e))}</p><div class="row"><button class="btn small" type="button" data-action="guide-make" data-id="${note.id}">Try again</button><button class="btn small ghost" type="button" data-action="guide-dismiss">Close</button></div>`);
+      }
+    },
+    'guide-stop': () => { if (NG.ctl) NG.ctl.abort(); },
+    'guide-dismiss': () => { if (NG.ctl) NG.ctl.abort(); guidePanel(''); },
+    'guide-use-pasted': (el) => { const t = document.getElementById('guidePaste').value; if (!t.trim()) { ui.toast('Paste the AI\'s answer first.'); return; } saveNoteGuide(el.dataset.id, t); },
+    'guide-remove': async (el) => { if (await ui.ask('Remove this study guide? Your notes and cards stay.', 'Remove guide')) { Store.setNoteGuide(el.dataset.id, null); ui.route(); } }
+  });
+  Object.assign(forms, {
+    'write-grade': (f) => { const v = f.answer.value.trim(); if (!v) { ui.toast('Write your answer first.'); f.answer.focus(); return; } writeGrade(v); }
+  });
 
   function onKey(e) {
     const h = location.hash;
@@ -401,12 +572,12 @@
     setInterval(() => { const t = document.getElementById('matchTime'); if (t && MT && !MT.end) t.textContent = fmtTime(Math.round((Date.now() - MT.start) / 1000)); }, 1000);
     return {
       views: {
-        flashcards: flashcardsView, learn: learnView, match: matchView, order: orderView, test: testSetup, mistakes: mistakesView, progress: progressView,
+        flashcards: flashcardsView, learn: learnView, match: matchView, order: orderView, test: testSetup, mistakes: mistakesView, progress: progressView, sheet: sheetView, write: writeView,
         truefalse: (src) => { const d = Modes.deck(src); return d ? `<div class="card empty"><p>✅ True or false: ${esc(d.title)}</p><div class="row center"><button class="btn primary" data-action="start-tf" data-src="${esc(src)}">Start</button><a class="btn" href="${d.back}">Back</a></div></div>` : ui.notFound(); }
       },
       actions, forms
     };
   }
 
-  root.MSG.Study = { init, modesPanel, guideHtml, printBtn, speakable, record, debug: () => ({ FC, LN, MT, OR }) /* read by the browser tests */ };
+  root.MSG.Study = { init, modesPanel, guideHtml, printBtn, noteGuideTab, speakable, record, debug: () => ({ FC, LN, MT, OR }) /* read by the browser tests */ };
 })(typeof window !== 'undefined' ? window : globalThis);

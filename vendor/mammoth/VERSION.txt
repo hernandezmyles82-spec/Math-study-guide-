@@ -1,0 +1,1 @@
+mammoth 1.8.0 (BSD-2-Clause), from the mammoth npm package

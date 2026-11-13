@@ -69,6 +69,79 @@ The student's notes:
   const PERMANENT = ['not_granted', 'sampling_disabled', 'not_declared', 'capability_disabled', 'capability_removed'];
   function message(e) { return ERRORS[e && e.code] || ERRORS.upstream_error; }
 
+  /* ---------- a full study guide from the student's notes (js/study.js shows it) ---------- */
+  const GUIDE_RULES = `You are writing a study guide for a student, built ONLY from their notes below.
+Use exactly this format. Leave out any section the notes don't support.
+
+## Overview
+Two to four sentences on what the topic is about.
+
+## Key ideas
+- **Term or idea**: what it means, in plain words
+(Group them under ### subheadings if that helps.)
+
+## Concept map
+Center: the main topic in a few words
+- Big idea: related detail; related detail; related detail
+(Three to six big ideas.)
+
+## Worked examples
+Example: a problem that is in the notes
+Solution: its steps
+Answer: its answer
+(Only if the notes contain worked problems.)
+
+## Common mistakes
+- Two things in the notes that are easy to mix up, and how to tell them apart
+
+## Timeline
+- 1776: an event from the notes
+(Only for dated events in the notes, oldest first, one per year.)
+
+## In order: name of a process from the notes
+- first step
+- next step
+(Only for processes the notes describe step by step.)
+
+## Check yourself
+Q: a question the notes answer
+A: its answer from the notes
+(Five to eight questions.)
+
+Rules:
+- Use ONLY facts that are in the notes. Do not add facts, dates, names, numbers, examples or questions from anywhere else.
+- If something in the notes looks wrong, keep what the notes say.
+- Write math in LaTeX, like \\( x^2 \\).
+- Write in the same language as the notes.
+- Reply with ONLY the guide, starting with "## Overview". No introduction, no code fences.
+
+The notes are titled: `;
+  const Q3 = '"""';
+  function guidePrompt(notes, title) { return GUIDE_RULES + '"' + String(title || 'My notes').slice(0, 200) + '"\n' + Q3 + '\n' + notes + '\n' + Q3; }
+  /* Keep only the guide: from the first "## " heading on. */
+  function cleanGuide(text) { const t = clean(text); const i = t.indexOf('## '); return i < 0 ? '' : t.slice(i).trim(); }
+
+  /* ---------- grading a written answer like a mark scheme ---------- */
+  function gradePrompt({ question, model, answer, marks }) {
+    return 'You are a fair teacher grading a student\'s written answer against a mark scheme.\n\n' +
+      'Question (worth ' + marks + ' mark' + (marks === 1 ? '' : 's') + '):\n' + Q3 + '\n' + question + '\n' + Q3 + '\n\n' +
+      'Model answer from the student\'s study material (this is the mark scheme):\n' + Q3 + '\n' + model + '\n' + Q3 + '\n\n' +
+      'The student\'s answer:\n' + Q3 + '\n' + answer + '\n' + Q3 + '\n\n' +
+      'Award one mark for each separate correct point that matches the model answer, up to ' + marks + '. Accept different wording if the meaning is right. Do not give marks for points the model answer doesn\'t contain, and don\'t take marks away for spelling.\n\n' +
+      'Reply with ONLY this JSON and nothing else:\n{"score": <whole number from 0 to ' + marks + '>, "earned": ["what the student got right"], "missing": ["what is missing or wrong"], "tip": "one sentence on how to get full marks"}';
+  }
+  /* The grade from the AI's reply, checked and limited, or null if it can't be read. */
+  function parseGrade(text, marks) {
+    const m = String(text || '').match(/\{[\s\S]*\}/);
+    if (!m) return null;
+    let o;
+    try { o = JSON.parse(m[0]); } catch (e) { return null; }
+    const score = Math.round(Number(o && o.score));
+    if (!Number.isFinite(score)) return null;
+    const list = (a) => (Array.isArray(a) ? a.filter((x) => typeof x === 'string' && x.trim()).slice(0, 5).map((x) => x.trim().slice(0, 300)) : []);
+    return { score: Math.max(0, Math.min(marks, score)), earned: list(o.earned), missing: list(o.missing), tip: typeof o.tip === 'string' ? o.tip.trim().slice(0, 400) : '' };
+  }
+
   root.MSG = root.MSG || {};
-  root.MSG.AIFormat = { MAX_CHARS, prompt, clean, available, message, isPermanent: (e) => PERMANENT.includes(e && e.code) };
+  root.MSG.AIFormat = { MAX_CHARS, prompt, clean, available, message, isPermanent: (e) => PERMANENT.includes(e && e.code), guidePrompt, cleanGuide, gradePrompt, parseGrade };
 })(typeof window !== 'undefined' ? window : globalThis);
