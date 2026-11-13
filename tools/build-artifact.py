@@ -30,6 +30,16 @@ def katex_css():
     assert 'url(fonts/' not in css
     return css
 
+def site_css():
+    # The site's own fonts (vendor/fonts) are embedded the same way as KaTeX's.
+    css = rd('css/styles.css')
+    def font(m):
+        with open(os.path.join(ROOT, 'vendor/fonts', m.group(1)), 'rb') as f:
+            return 'url(data:font/woff2;base64,%s)' % base64.b64encode(f.read()).decode()
+    css = re.sub(r'url\(\.\./vendor/fonts/([^)]+\.woff2)\)', font, css)
+    assert 'vendor/fonts' not in css
+    return css
+
 def main(out):
     html = rd('index.html')
     head = re.search(r'<head>(.*?)</head>', html, re.S).group(1)
@@ -37,7 +47,7 @@ def main(out):
     parts = [re.search(r'<title>.*?</title>', head).group(0),
              re.search(r'<meta name="description"[^>]*>', head).group(0),
              '<style>/* KaTeX */\n' + katex_css() + '\n</style>',
-             '<style>/* css/styles.css */\n' + rd('css/styles.css') + '\n</style>',
+             '<style>/* css/styles.css */\n' + site_css() + '\n</style>',
              re.sub(r'\s*<script[^>]*>\s*</script>', '', body).strip()]
     for p in re.findall(r'<script (?:defer )?src="([^"]+)"', body):
         if p.startswith('vendor/katex'):

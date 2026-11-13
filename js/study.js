@@ -45,7 +45,7 @@
         : `<a class="mode-btn" href="#${mode}--${esc(src)}"><span class="mode-icon">${icon}</span><span>${label}</span></a>`)
       : `<span class="mode-btn off" title="${esc(why)}"><span class="mode-icon">${icon}</span><span>${label}</span></span>`;
     return `<div class="card no-print">
-      <h2>🎮 Ways to study</h2>
+      <h2>Ways to study</h2>
       ${n ? '' : '<p class="small muted">Add study cards first, then try these.</p>'}
       <div class="modes">
         ${b('flashcards', '🃏', 'Flashcards', can(1), 'Needs at least 1 card')}
@@ -70,7 +70,7 @@
     g.orders.forEach((o) => parts.push(`<section class="guide-sec"><h3>${esc(o.title)}</h3><ol>${o.items.map((x) => `<li>${fmt(x)}</li>`).join('')}</ol></section>`));
     if (g.check.length) parts.push(`<section class="guide-sec"><h3>Check yourself</h3>${g.check.map((c) => `<details class="check-q"><summary>${fmt(c.q)}</summary><div>${fmt(c.a)}</div></details>`).join('')}<p class="small muted no-print">Tap a question to see the answer.</p></section>`);
     return `<div class="card guide" id="guide">
-      <div class="row spread"><h2>📘 Study guide</h2><div class="row tight no-print">${speakBtn()}<button class="btn small ghost" type="button" data-action="print">🖨️ Print</button></div></div>
+      <div class="row spread"><h2>Study guide</h2><div class="row tight no-print">${speakBtn()}<button class="btn small ghost" type="button" data-action="print">🖨️ Print</button></div></div>
       ${parts.join('')}
     </div>`;
   }
@@ -90,7 +90,7 @@
   function flashcardsView(src) {
     if (!FC || FC.src !== src) { if (!fcStart(src)) return ui.notFound(); }
     const list = fcVisible();
-    const head = `<div class="page-head"><div><a href="${FC.back}" class="muted small">← ${esc(FC.title)}</a><h1>🃏 Flashcards</h1></div>
+    const head = `<div class="page-head"><div><a href="${FC.back}" class="muted small">← ${esc(FC.title)}</a><h1>Flashcards</h1></div>
       <div class="row tight"><button class="btn small ${FC.starOnly ? 'primary' : ''}" data-action="fc-staronly" aria-pressed="${FC.starOnly}">⭐ Starred only</button><button class="btn small" data-action="fc-shuffle">🔀 Shuffle</button></div></div>`;
     if (!list.length) return head + `<div class="card empty"><p>${FC.starOnly ? 'No starred cards here yet. Tap ☆ on a card to star it.' : 'No cards to show.'}</p></div>`;
     if (FC.done || FC.i >= list.length) {
@@ -117,7 +117,7 @@
           <button class="btn" data-action="fc-next" aria-label="Next card">→</button>
         </div>
         <div class="row center"><button class="btn small ghost" data-action="fc-star" data-id="${esc(it.id)}">${star ? '⭐ Starred' : '☆ Star'}</button>${speakBtn()}</div>
-        <p class="muted small center">Keys: Space flips · ← → move · 1 still learning · 2 know it</p>
+        <p class="muted small center key-hint">Keys: Space flips · ← → move · 1 still learning · 2 know it</p>
       </div>`;
   }
 
@@ -184,7 +184,7 @@
       MT.left = U.shuffle(rounds[0].slice()); MT.right = U.shuffle(rounds[0].slice());
       Store.markMode('match');
     }
-    const head = `<div class="page-head"><div><a href="${MT.back}" class="muted small">← ${esc(MT.title)}</a><h1>🧩 Matching</h1></div></div>`;
+    const head = `<div class="page-head"><div><a href="${MT.back}" class="muted small">← ${esc(MT.title)}</a><h1>Matching</h1></div></div>`;
     if (MT.end) {
       const secs = Math.round((MT.end - MT.start) / 1000);
       const pairs = MT.rounds.reduce((s, r) => s + r.length, 0);
@@ -216,7 +216,7 @@
     }
     const set = OR.sets[OR.s];
     if (!OR.round) { OR.round = Modes.orderRound(set, 6); OR.placed = []; OR.checked = false; }
-    const head = `<div class="page-head"><div><a href="${OR.back}" class="muted small">← ${esc(OR.title)}</a><h1>⏳ Put it in order</h1></div></div>`;
+    const head = `<div class="page-head"><div><a href="${OR.back}" class="muted small">← ${esc(OR.title)}</a><h1>Put it in order</h1></div></div>`;
     const chooser = OR.sets.length > 1 ? `<div class="subject-chips">${OR.sets.map((x, i) => `<button class="chip-btn ${i === OR.s ? 'active' : ''}" data-action="order-set" data-i="${i}">${esc(x.title)}</button>`).join('')}</div>` : '';
     const how = set.kind === 'time' ? 'Tap the events from <b>earliest</b> to <b>latest</b>.' : 'Tap the steps in the order they happen.';
     const left = OR.round.filter((x) => !OR.placed.includes(x));
@@ -249,7 +249,7 @@
     const d = Modes.deck(src);
     if (!d) return ui.notFound();
     const p = Store.current();
-    return `<div class="page-head"><div><a href="${d.back}" class="muted small">← ${esc(d.title)}</a><h1>📝 Practice test</h1><p class="muted">Like the real thing: no answers shown until you finish, then a full review of every question.</p></div></div>
+    return `<div class="page-head"><div><a href="${d.back}" class="muted small">← ${esc(d.title)}</a><h1>Practice test</h1><p class="muted">Like the real thing: no answers shown until you finish, then a full review of every question.</p></div></div>
       <form class="card stack narrow" data-form="start-test" data-src="${esc(src)}">
         <label>Questions<select name="n">${[10, 20, 30, 40].map((n) => `<option ${n === 20 ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
         <label>Time limit<select name="min"><option value="0">No time limit</option>${[5, 10, 15, 20, 30, 45, 60].map((m) => `<option value="${m}" ${m === 20 ? 'selected' : ''}>${m} minutes</option>`).join('')}</select></label>
@@ -261,7 +261,7 @@
   /* ---------- mistake notebook ---------- */
   function mistakesView() {
     const list = Store.mistakes();
-    return `<div class="page-head"><div><h1>📕 Mistake notebook</h1><p class="muted">Every question you miss lands here. Answer it right later and it leaves the notebook.</p></div>
+    return `<div class="page-head"><div><h1>Mistake notebook</h1><p class="muted">Every question you miss lands here. Answer it right later and it leaves the notebook.</p></div>
       ${list.length ? `<div class="row tight"><button class="btn primary" data-action="redo-mistakes">Redo all ${list.length}</button><button class="btn small ghost" data-action="clear-mistakes">Clear notebook</button></div>` : ''}</div>
       ${list.length ? `<div class="card"><div class="card-list">${list.map((m) => `<div class="card-row"><div class="cr-main"><div class="cr-front">${ui.fmt(m.prompt)}</div><div class="cr-back">✔ ${ui.fmt(m.kind === 'mc' ? m.choices[m.correct] : m.answerDisplay || m.answer || '')}</div><div class="muted small">${m.topic ? esc(m.topic) + ' · ' : ''}missed ${m.count === 1 ? 'once' : m.count + ' times'}</div></div></div>`).join('')}</div></div>`
         : '<div class="card empty"><p>📗 Your notebook is empty.</p><p class="muted">Nice! Questions you miss in any quiz or study mode will show up here so you can fix them.</p><a class="btn" href="#dashboard">Go home</a></div>'}`;
@@ -277,11 +277,11 @@
     for (let i = 34; i >= 0; i--) { const d = new Date(); d.setDate(d.getDate() - i); const k = U.dateKey(d); const a = p.activity[k]; days.push({ k, n: a ? a.total : 0, day: d }); }
     const lvl = (n) => (n === 0 ? 0 : n < 10 ? 1 : n < 30 ? 2 : 3);
     const topics = Object.keys(p.catStats).map((id) => ({ c: Library.get(id), m: Modes.topicMastery(id), s: p.catStats[id] })).filter((x) => x.c).sort((a, b) => b.m - a.m);
-    return `<div class="page-head"><div><h1>🏆 Progress</h1><p class="muted">${st.streak ? `🔥 ${ui.plural(st.streak, 'day')} streak` : 'Study today to start a streak'} · ${st.total} questions answered${st.accuracy != null ? ' · ' + st.accuracy + '% correct' : ''}</p></div></div>
-      <div class="card"><h2>📆 Last 5 weeks</h2><div class="heat" role="img" aria-label="Questions answered each day for the last 35 days">${days.map((d) => `<span class="heat-day h${lvl(d.n)}" title="${d.day.toLocaleDateString()}: ${d.n} questions"></span>`).join('')}</div>
+    return `<div class="page-head"><div><h1>Progress</h1><p class="muted">${st.streak ? `🔥 ${ui.plural(st.streak, 'day')} streak` : 'Study today to start a streak'} · ${st.total} questions answered${st.accuracy != null ? ' · ' + st.accuracy + '% correct' : ''}</p></div></div>
+      <div class="card"><h2>Last 5 weeks</h2><div class="heat" role="img" aria-label="Questions answered each day for the last 35 days">${days.map((d) => `<span class="heat-day h${lvl(d.n)}" title="${d.day.toLocaleDateString()}: ${d.n} questions"></span>`).join('')}</div>
         <p class="small muted">Each square is a day. Darker means more questions answered.</p></div>
-      <div class="card"><h2>🎖️ Badges <span class="muted small">${got} of ${bs.length}</span></h2><div class="badges">${bs.map((b) => `<div class="badge-tile ${b.got ? 'got' : ''}"><span class="badge-icon">${b.got ? b.icon : '🔒'}</span><b>${esc(b.name)}</b><span class="small muted">${esc(b.how)}</span></div>`).join('')}</div></div>
-      <div class="card"><h2>📊 Topic mastery</h2>${topics.length ? `<ul class="list">${topics.map((x) => `<li><div><a href="#category--${x.c.id}"><b>${x.c.icon} ${esc(x.c.name)}</b></a> <span class="muted small">${x.s.right}/${x.s.right + x.s.wrong} correct</span><div class="meter"><div style="width:${x.m}%"></div></div></div><b>${x.m}%</b></li>`).join('')}</ul><p class="small muted">Mastery is how often you're right, counted fully once you've answered 20 questions in a topic.</p>` : '<p class="muted">Practice a topic from Categories to see your mastery here.</p>'}</div>`;
+      <div class="card"><h2>Badges <span class="muted small">${got} of ${bs.length}</span></h2><div class="badges">${bs.map((b) => `<div class="badge-tile ${b.got ? 'got' : ''}"><span class="badge-icon">${b.got ? b.icon : '🔒'}</span><b>${esc(b.name)}</b><span class="small muted">${esc(b.how)}</span></div>`).join('')}</div></div>
+      <div class="card"><h2>Topic mastery</h2>${topics.length ? `<ul class="list">${topics.map((x) => `<li><div><a href="#category--${x.c.id}"><b>${x.c.icon} ${esc(x.c.name)}</b></a> <span class="muted small">${x.s.right}/${x.s.right + x.s.wrong} correct</span><div class="meter"><div style="width:${x.m}%"></div></div></div><b>${x.m}%</b></li>`).join('')}</ul><p class="small muted">Mastery is how often you're right, counted fully once you've answered 20 questions in a topic.</p>` : '<p class="muted">Practice a topic from Categories to see your mastery here.</p>'}</div>`;
   }
 
   /* ---------- actions & forms ---------- */

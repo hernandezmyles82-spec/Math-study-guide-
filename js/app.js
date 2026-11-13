@@ -140,32 +140,35 @@
       <div class="auth card">${tabs}${form}</div>`;
   }
 
+  const subjSlug = (name) => String(name || '').toLowerCase().replace(/&/g, '').replace(/[^a-z]+/g, '-').replace(/^-|-$/g, '');
   function welcome() {
     const profiles = Store.profiles();
+    const groups = Library.groups();
     return `
-      <section class="hero">
-        <h1>Turn your notes into quizzes.</h1>
-        <p class="lead">Paste notes from class, from a study guide, or from ChatGPT, Claude or any AI. We turn them into study cards, quiz you over time, and help you cram the night before a test. No notes? Practice any of ${Library.categories.length} built-in topics: math, science, history, English, languages and computer science.</p>
-        <div class="steps">
-          <div class="step"><b>1</b><span>Paste or upload your notes</span></div>
-          <div class="step"><b>2</b><span>We build study cards automatically</span></div>
-          <div class="step"><b>3</b><span>Get quizzed: daily review, test prep, or cram mode</span></div>
-        </div>
-      </section>
-      <section class="grid two">
-        <div class="card">
-          <h2>${profiles.length ? 'Create a new profile' : 'Create your profile'}</h2>
-          <form data-form="create-profile" class="stack">
-            <label>Your name<input name="name" required maxlength="40" placeholder="First name or nickname" autocomplete="off"></label>
+      <section class="landing">
+        <div>
+          <p class="eyebrow">Free · Any subject · Elementary to AP &amp; IB</p>
+          <h1>Turn your notes into <mark>quizzes that stick.</mark></h1>
+          <p class="lead">Paste notes from class, a study guide or any AI chat. We turn them into flashcards and quizzes, bring cards back right before you'd forget them, and get you ready for tomorrow's test.</p>
+          <form data-form="create-profile" class="start-form">
+            <input id="startName" name="name" required maxlength="40" placeholder="Your first name or nickname" autocomplete="off" aria-label="Your name">
             <button class="btn primary" type="submit">Start studying</button>
           </form>
-          <p class="muted small">Have a backup file? <label class="link-like">Import it<input type="file" accept=".json,application/json" data-change="import-backup" hidden></label></p>
+          <p class="muted small">No sign-up form. Have a backup file? <label class="link-like">Import it<input type="file" accept=".json,application/json" data-change="import-backup" hidden></label></p>
+          ${profiles.length ? `<div class="stack" style="margin-top:1.2rem;max-width:30rem"><p class="eyebrow" style="margin:0">Or continue as</p>${profiles.map((p) => `<button class="btn profile-btn ${Store.current() && Store.current().id === p.id ? 'active' : ''}" data-action="pick-profile" data-id="${p.id}"><span class="avatar">${esc(p.name[0] || '?').toUpperCase()}</span><span>${esc(p.name)}<small>${plural(p.notes.length, 'note')} · ${plural(p.cards.length, 'card')}</small></span></button>`).join('')}</div>` : ''}
         </div>
-        ${profiles.length ? `<div class="card">
-          <h2>Choose a profile</h2>
-          <div class="stack">${profiles.map((p) => `<button class="btn profile-btn ${Store.current() && Store.current().id === p.id ? 'active' : ''}" data-action="pick-profile" data-id="${p.id}"><span class="avatar">${esc(p.name[0] || '?').toUpperCase()}</span><span>${esc(p.name)}<small>${plural(p.notes.length, 'note')} · ${plural(p.cards.length, 'card')}</small></span></button>`).join('')}</div>
-        </div>` : ''}
-      </section>`;
+        <div class="desk" aria-hidden="true">
+          <div class="index-card under"><span class="ic-label">Biology · Cells</span><span class="ic-q">Mitochondria</span><span class="ic-a">Makes energy for the cell</span></div>
+          <div class="index-card top"><span class="ic-label">Derivatives · AP Calculus</span><span class="ic-q">What is the derivative of \\(x^3\\)?</span><span class="ic-a">\\(3x^2\\)</span></div>
+        </div>
+      </section>
+      <ol class="how">
+        <li><b>Add your notes</b><span>Paste or upload them. Messy is fine, and AI can tidy them up if you want.</span></li>
+        <li><b>We build the cards</b><span>Terms, questions, dates and formulas become flashcards and quiz questions.</span></li>
+        <li><b>Study six ways</b><span>Flashcards, learn mode, matching, true/false, practice tests and timelines. Missed cards come back sooner.</span></li>
+      </ol>
+      <div class="section-title"><h2>No notes? Start with a built-in topic</h2><span class="muted small">${Library.categories.length} topics with study guides and endless practice</span></div>
+      <div class="subject-strip">${groups.map((g) => `<div class="subject-tile" data-subject="${subjSlug(g.subject)}"><span class="cat-icon">${g.icon}</span><span><b>${esc(g.subject)}</b><small>${plural(g.levels.reduce((n, l) => n + l.cats.length, 0), 'topic')}</small></span></div>`).join('')}</div>`;
   }
 
   function dashboard() {
@@ -197,7 +200,7 @@
       </div>
       <div class="grid two">
         <div class="card highlight">
-          <h2>📅 Daily review</h2>
+          <h2>Daily review</h2>
           ${st.cards === 0 ? `<p>You don't have any study cards yet. Add your notes and we'll build them for you, or pick a topic from the study categories.</p>
             <div class="row"><a class="btn primary" href="#notes-new">Add my notes</a><a class="btn" href="#categories">Browse categories</a></div>`
           : st.due > 0 ? `<p>You have <b>${plural(st.due, 'card')}</b> ready for review. Cards you miss come back sooner, and cards you know come back later.</p>
@@ -206,7 +209,7 @@
             <div class="row"><button class="btn primary" data-action="start-weak">Practice my weakest cards</button></div>`}
         </div>
         <div class="card">
-          <h2>📝 Upcoming tests & quizzes</h2>
+          <h2>Upcoming tests & quizzes</h2>
           ${exams.length ? `<ul class="list">${exams.slice(0, 4).map((e) => { const n = U.daysUntil(e.date); return `<li><div><b>${esc(e.title)}</b> <span class="badge ${n <= 1 ? 'hot' : ''}">${countdown(n)}</span></div><div class="row tight"><button class="btn small primary" data-action="exam-quiz" data-id="${e.id}" data-mode="${n <= 1 ? 'cram' : 'quick'}">${n <= 1 ? 'Cram now' : 'Quick quiz'}</button></div></li>`; }).join('')}</ul>`
           : `<p class="muted">Got a quiz or test coming up? Add it and we'll build a practice test from your notes.</p>`}
           <a class="btn" href="#exams">+ Add a test date</a>
@@ -217,14 +220,14 @@
         <a class="card cat-card" href="#progress"><span class="cat-icon">🏆</span><span><b>Progress & badges</b><span class="muted small">${window.MSG.Modes.badges().filter((b) => b.got).length} badges earned${st.streak ? ' · 🔥 ' + plural(st.streak, 'day') : ''}</span></span></a>
         ${Object.keys(Store.starred()).length ? `<a class="card cat-card" href="#flashcards--starred"><span class="cat-icon">⭐</span><span><b>Starred cards</b><span class="muted small">${plural(Object.keys(Store.starred()).length, 'card')} as flashcards</span></span></a>` : (st.cards ? `<a class="card cat-card" href="#flashcards--deck"><span class="cat-icon">🃏</span><span><b>All my cards</b><span class="muted small">Study ${plural(st.cards, 'card')} as flashcards</span></span></a>` : `<a class="card cat-card" href="#categories"><span class="cat-icon">📚</span><span><b>Study guides</b><span class="muted small">Guides and practice for ${Library.categories.length} topics</span></span></a>`)}
       </div>
-      ${weak.length ? `<div class="card"><h2>🎯 Weak spots to work on</h2><ul class="list">${weak.map(([k, s, r]) => `<li><div><b>${esc(k)}</b> <span class="muted small">${Math.round(r * 100)}% correct (${s.right}/${s.right + s.wrong})</span></div>${s.kind === 'cat' ? `<a class="btn small" href="#category--${s.id}">Practice</a>` : `<button class="btn small" data-action="start-topic" data-topic="${esc(k)}">Practice</button>`}</li>`).join('')}</ul></div>` : ''}
+      ${weak.length ? `<div class="card"><h2>Weak spots to work on</h2><ul class="list">${weak.map(([k, s, r]) => `<li><div><b>${esc(k)}</b> <span class="muted small">${Math.round(r * 100)}% correct (${s.right}/${s.right + s.wrong})</span></div>${s.kind === 'cat' ? `<a class="btn small" href="#category--${s.id}">Practice</a>` : `<button class="btn small" data-action="start-topic" data-topic="${esc(k)}">Practice</button>`}</li>`).join('')}</ul></div>` : ''}
       <div class="grid two">
         <div class="card">
-          <h2>📚 Recent notes</h2>
+          <h2>Recent notes</h2>
           ${p.notes.length ? `<ul class="list">${p.notes.slice(0, 4).map((n) => `<li><a href="#note--${n.id}"><b>${esc(n.title)}</b></a><span class="muted small">${plural(Store.cardsForNote(n.id).length, 'card')}</span></li>`).join('')}</ul><a href="#notes">All notes →</a>` : '<p class="muted">No notes yet.</p>'}
         </div>
         <div class="card">
-          <h2>🏁 Recent quizzes</h2>
+          <h2>Recent quizzes</h2>
           ${p.sessions.length ? `<ul class="list">${p.sessions.slice(0, 5).map((s) => `<li><span>${esc(s.title)}</span><span class="score ${pct(s.right, s.total) >= 80 ? 'good' : pct(s.right, s.total) >= 60 ? 'ok' : 'bad'}">${s.right}/${s.total}</span></li>`).join('')}</ul>` : '<p class="muted">Your quiz results will show up here.</p>'}
         </div>
       </div>`;
@@ -306,7 +309,7 @@ Include every key vocabulary word, every formula, and at least 10 practice quest
           <div class="row"><button class="btn primary" type="submit">${n ? 'Save changes' : 'Save notes & build quiz'}</button><a class="btn" href="${n ? '#note--' + n.id : '#notes'}">Cancel</a></div>
         </form>
         <aside class="card tips">
-          <h3>💡 Tips for the best quizzes</h3>
+          <h3>Tips for the best quizzes</h3>
           <p class="small">We understand most notes, but these patterns work best:</p>
           <ul class="small">
             <li><code>## Topic</code> headings group your cards</li>
@@ -318,7 +321,7 @@ Include every key vocabulary word, every formula, and at least 10 practice quest
             <li><code>front :: back</code> → your own flashcard</li>
             <li><code>The {{chain rule}} is ...</code> → you choose the blank</li>
           </ul>
-          <h3>🤖 Using ChatGPT, Claude, or another AI?</h3>
+          <h3>Using ChatGPT, Claude, or another AI?</h3>
           <p class="small">Give it your study guide along with this prompt, then paste its answer here:</p>
           <pre class="ai-prompt" id="aiPrompt">${esc(AI_PROMPT)}</pre>
           <button class="btn small" type="button" data-action="copy-prompt">Copy prompt</button>
@@ -482,7 +485,7 @@ Include every key vocabulary word, every formula, and at least 10 practice quest
       const body = groups.map((g) => {
         const cs = list.filter((c) => c.subject === g.subject);
         if (!cs.length) return '';
-        return `<h2 class="subject-head">${g.icon} ${esc(g.subject)}</h2><div class="grid three">${cs.map((c) => `<a class="card cat-card" href="#course--${c.id}"><span class="cat-icon prog-${c.program.toLowerCase()}">${c.program}</span><span><b>${esc(c.name)}</b><span class="muted small">${c.units.length} units · practice from ${c.topics.length} topic${c.topics.length > 1 ? 's' : ''}</span></span></a>`).join('')}</div>`;
+        return `<h2 class="subject-head" data-subject="${subjSlug(g.subject)}">${esc(g.subject)}</h2><div class="grid three">${cs.map((c) => `<a class="card cat-card" data-subject="${subjSlug(c.subject)}" href="#course--${c.id}"><span class="cat-icon prog-${c.program.toLowerCase()}">${c.program}</span><span><b>${esc(c.name)}</b><span class="muted small">${c.units.length} units · practice from ${c.topics.length} topic${c.topics.length > 1 ? 's' : ''}</span></span></a>`).join('')}</div>`;
       }).join('');
       return head('Study Categories', `Every AP course and the IB Diploma subjects, each with its units and practice questions.`) + tabs + progChips + subjChips + (body || '<p class="muted">No courses match.</p>');
     }
@@ -492,12 +495,12 @@ Include every key vocabulary word, every formula, and at least 10 practice quest
     const body = groups.filter((g) => subj === 'all' || g.subject === subj).map((g) => {
       const levels = g.levels.map((l) => ({ level: l.level, cats: l.cats.filter(match) })).filter((l) => l.cats.length);
       if (!levels.length) return '';
-      return `<h2 class="subject-head">${g.icon} ${esc(g.subject)}</h2>` + levels.map((l) => (l.level === g.subject ? '' : `<h3 class="level">${esc(l.level)}</h3>`) + `<div class="grid three">${l.cats.map(catCard).join('')}</div>`).join('');
+      return `<h2 class="subject-head" data-subject="${subjSlug(g.subject)}">${esc(g.subject)}</h2>` + levels.map((l) => (l.level === g.subject ? '' : `<h3 class="level">${esc(l.level)}</h3>`) + `<div class="grid three">${l.cats.map(catCard).join('')}</div>`).join('');
     }).join('');
     return head('Study Categories', `No notes needed: ${Library.categories.length} topics across ${groups.length} subjects, from elementary school to AP, IB and college.`) + tabs + bandChips + subjChips + (body || '<p class="muted">No topics match your search.</p>');
     function catCard(c) {
       const s = p.catStats[c.id];
-      return `<a class="card cat-card" href="#category--${c.id}"><span class="cat-icon">${c.icon}</span><span><b>${esc(c.name)}</b><span class="band band-${c.band}">${BAND_SHORT[c.band]}</span><span class="muted small">${esc(c.blurb)}</span>${s ? `<span class="small score ${window.MSG.Modes.topicMastery(c.id) >= 80 ? 'good' : 'ok'}">${window.MSG.Modes.topicMastery(c.id)}% mastered · ${s.right + s.wrong} answered</span>` : ''}${window.MSG.Guides.has(c.id) ? '<span class="small muted">📘 Study guide</span>' : ''}</span></a>`;
+      return `<a class="card cat-card" data-subject="${subjSlug(c.subject)}" href="#category--${c.id}"><span class="cat-icon">${c.icon}</span><span><b>${esc(c.name)}</b><span class="band band-${c.band}">${BAND_SHORT[c.band]}</span><span class="muted small">${esc(c.blurb)}</span>${s ? `<span class="small score ${window.MSG.Modes.topicMastery(c.id) >= 80 ? 'good' : 'ok'}">${window.MSG.Modes.topicMastery(c.id)}% mastered · ${s.right + s.wrong} answered</span>` : ''}${window.MSG.Guides.has(c.id) ? '<span class="small muted">📘 Study guide</span>' : ''}</span></a>`;
     }
   }
 
@@ -508,10 +511,10 @@ Include every key vocabulary word, every formula, and at least 10 practice quest
     const diff = Number(sessionStorageGet('difficulty') || 2);
     const topics = c.topics.map((t) => Library.get(t)).filter(Boolean);
     return `
-      <div class="page-head"><div><a href="#categories" class="muted small" data-action="cat-view" data-view="courses">← AP &amp; IB courses</a><h1><span class="prog-badge prog-${c.program.toLowerCase()}">${c.program}</span> ${esc(c.name)}</h1><p class="muted">${esc(c.subject)}${c.note ? ' · ' + esc(c.note) : ''}</p></div></div>
+      <div class="topic-hero" data-subject="${subjSlug(c.subject)}"><div><a href="#categories" class="muted small" data-action="cat-view" data-view="courses">← AP &amp; IB courses</a><h1><span class="prog-badge prog-${c.program.toLowerCase()}">${c.program}</span> ${esc(c.name)}</h1><p class="muted">${esc(c.subject)}${c.note ? ' · ' + esc(c.note) : ''}</p></div></div>
       <div class="grid editor">
         <div class="card">
-          <h2>📋 Course units</h2>
+          <h2>Course units</h2>
           <ol class="units">${c.units.map((u) => `<li>${esc(u)}</li>`).join('')}</ol>
           <h3>Topics that practice this course</h3>
           <div class="topic-links">${topics.map((t) => `<a class="chip-btn" href="#category--${t.id}">${t.icon} ${esc(t.name)}</a>`).join('')}</div>
@@ -519,14 +522,14 @@ Include every key vocabulary word, every formula, and at least 10 practice quest
         <div class="stack">
           ${window.MSG.Study.modesPanel('course_' + c.id)}
           <form class="card stack" data-form="practice-course" data-id="${c.id}">
-            <h2>✍️ Practice this course</h2>
+            <h2>Practice this course</h2>
             <p class="small muted">Questions drawn from all ${topics.length} topics above, new every time.</p>
             <fieldset class="seg"><legend>Difficulty</legend>${['Easy', 'Medium', 'Hard'].map((l, i) => `<label><input type="radio" name="d" value="${i + 1}" ${diff === i + 1 ? 'checked' : ''}><span>${l}</span></label>`).join('')}</fieldset>
             <label>Questions<select name="n">${[10, 15, 20, 30].map((n) => `<option ${n === Math.max(10, p.settings.quizLength) ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
             <button class="btn primary" type="submit">Start practice</button>
           </form>
           <div class="card stack">
-            <h3>📅 Have a test coming up?</h3>
+            <h3>Have a test coming up?</h3>
             <p class="small">Add it to Test Prep with these topics already picked, then add your own notes for the unit.</p>
             <button class="btn small" data-action="course-to-exam" data-id="${c.id}">Plan a test for this course</button>
           </div>
@@ -542,30 +545,30 @@ Include every key vocabulary word, every formula, and at least 10 practice quest
     const added = Store.libraryCardsAdded(id);
     const diff = Number(sessionStorageGet('difficulty') || 2);
     return `
-      <div class="page-head"><div><a href="#categories" class="muted small">← Categories</a><h1>${c.icon} ${esc(c.name)}</h1><p class="muted"><span class="band band-${c.band}">${BAND_SHORT[c.band]}</span> ${esc(c.subject === c.level ? c.subject : c.subject + ' · ' + c.level)} · ${esc(c.blurb)}</p>${(() => { const cs = window.MSG.Courses.list.filter((k) => k.topics.includes(c.id)); return cs.length ? `<p class="small">Used in: ${cs.map((k) => `<a href="#course--${k.id}">${esc(k.name)}</a>`).join(', ')}</p>` : ''; })()}</div></div>
+      <div class="topic-hero" data-subject="${subjSlug(c.subject)}"><div><a href="#categories" class="muted small no-print">← Categories</a><h1><span class="cat-icon">${c.icon}</span>${esc(c.name)}</h1><p class="muted"><span class="band band-${c.band}">${BAND_SHORT[c.band]}</span> ${esc(c.subject === c.level ? c.subject : c.subject + ' · ' + c.level)} · ${esc(c.blurb)}</p>${(() => { const cs = window.MSG.Courses.list.filter((k) => k.topics.includes(c.id)); return cs.length ? `<p class="small">Used in: ${cs.map((k) => `<a href="#course--${k.id}">${esc(k.name)}</a>`).join(', ')}</p>` : ''; })()}</div></div>
       <div class="grid editor">
         <div class="stack">
           ${window.MSG.Study.guideHtml(id)}
           <div class="card ref-card">
-            <div class="row spread"><h2>📖 Reference sheet</h2>${window.MSG.Guides.has(id) ? '' : '<button class="btn small ghost no-print" type="button" data-action="print">🖨️ Print</button>'}</div>
+            <div class="row spread"><h2>Reference sheet</h2>${window.MSG.Guides.has(id) ? '' : '<button class="btn small ghost no-print" type="button" data-action="print">🖨️ Print</button>'}</div>
             <dl class="ref">${c.concepts.map((k) => `<dt>${esc(k.term)}</dt><dd>${esc(k.def)}</dd>`).join('')}</dl>
           </div>
         </div>
         <div class="stack">
           ${window.MSG.Study.modesPanel('cat_' + id)}
           <form class="card stack no-print" data-form="practice" data-id="${id}">
-            <h2>✍️ Practice</h2>
+            <h2>Practice</h2>
             <p class="small muted">${Generators.has(id) ? 'A new set of problems every time, mixed with concept questions.' : 'Concept questions from the reference sheet.'}</p>
             <fieldset class="seg"><legend>Difficulty</legend>${['Easy', 'Medium', 'Hard'].map((l, i) => `<label><input type="radio" name="d" value="${i + 1}" ${diff === i + 1 ? 'checked' : ''}><span>${l}</span></label>`).join('')}</fieldset>
             <label>Questions<select name="n">${[5, 10, 15, 20].map((n) => `<option ${n === p.settings.quizLength ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
             <button class="btn primary" type="submit">Start practice</button>
           </form>
           <div class="card no-print">
-            <h3>🔁 Remember it long-term</h3>
+            <h3>Remember it long-term</h3>
             <p class="small">${added ? 'These key concepts are in your daily review deck.' : 'Add these key concepts to your daily review so they come back over time.'}</p>
             <button class="btn small" data-action="${added ? 'remove-lib' : 'add-lib'}" data-id="${id}">${added ? 'Remove from my deck' : '+ Add ' + c.concepts.length + ' cards to my deck'}</button>
           </div>
-          ${s ? `<div class="card no-print"><h3>📊 Your stats</h3><p>${s.right} correct out of ${s.right + s.wrong} (${pct(s.right, s.right + s.wrong)}%)</p><p class="small">Mastery: <b>${window.MSG.Modes.topicMastery(id)}%</b></p><div class="meter"><div style="width:${window.MSG.Modes.topicMastery(id)}%"></div></div></div>` : ''}
+          ${s ? `<div class="card no-print"><h3>Your stats</h3><p>${s.right} correct out of ${s.right + s.wrong} (${pct(s.right, s.right + s.wrong)}%)</p><p class="small">Mastery: <b>${window.MSG.Modes.topicMastery(id)}%</b></p><div class="meter"><div style="width:${window.MSG.Modes.topicMastery(id)}%"></div></div></div>` : ''}
         </div>
       </div>`;
   }
@@ -721,7 +724,7 @@ service cloud.firestore {
           ${body}
           ${feedback}
         </div>
-        <p class="muted small center">Tip: press Enter to go to the next question${q.kind === 'mc' && !session.answered ? ', or 1–4 to choose an answer' : ''}.</p>
+        <p class="muted small center key-hint">Tip: press Enter to go to the next question${q.kind === 'mc' && !session.answered ? ', or 1–4 to choose an answer' : ''}.</p>
       </div>`;
   }
   const pick = U.pick;

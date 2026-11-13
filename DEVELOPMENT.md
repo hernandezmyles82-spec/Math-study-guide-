@@ -116,6 +116,14 @@ weighted choice in `cardQuestion` (`js/quiz.js:66`).
 
 > ⚠️ **Watch out:** Multiple-choice distractors must never be equal in value to the answer or to each other ("2/1" vs "2"). Build them with `frac()` rather than raw `\frac{}{}` strings so equal values collapse, and keep the test in `tests/run-tests.js` that evaluates every pair of choices.
 
+### Look and feel
+
+`css/styles.css` starts with the design tokens (light values on `:root`, dark values in both the `prefers-color-scheme` block and `[data-theme="dark"]`): paper background, ballpoint-blue `--primary`, highlighter `--hl-mark` (key words in guides, the current menu item), index-card `--rule` / `--rule-line` (flashcards, the landing page cards), graph-paper `--grid`, and one color per subject (`--s-math`, …). Any element with `data-subject="<slug>"` gets that subject's color as `--subj` (slug = `subjSlug(subject)` in `js/app.js`). The "Design layer" at the end of the file refines the base rules.
+
+Fonts are Inter (text) and Bricolage Grotesque (headings), vendored in `vendor/fonts/` (SIL Open Font License) because the security policy only allows the site's own files; `tools/build-artifact.py` embeds them as data URIs for the claude.ai page.
+
+> ⚠️ **Watch out:** Every color must be a token defined on bare `:root` first; never put a literal color in a component rule, or it breaks in dark mode.
+
 ### Security
 
 `index.html` sets a Content-Security-Policy: scripts only from the site itself, no inline scripts or `on…=` attributes, no plugins, and network connections only to the site and Firebase. Text from notes, names and backups is always escaped (`U.esc`), and `Store.importProfile` rebuilds every field of a backup.
