@@ -103,6 +103,7 @@ js/modes.js         study-mode logic: flashcards, learn, matching, true/false, t
 js/study.js         study-mode screens, study guides, mistake notebook, progress page
 js/app.js           UI views and routing
 vendor/katex/       KaTeX math rendering (MIT license)
+vendor/fonts/       Inter and Bricolage Grotesque fonts (SIL Open Font License)
 vendor/firebase/    Firebase SDK 10.12.2 (Apache 2.0)
 tests/              Node tests + sample notes
 DEVELOPMENT.md      how the code works + pitfalls to avoid when changing it
