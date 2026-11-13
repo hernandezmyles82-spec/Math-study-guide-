@@ -32,7 +32,7 @@ Both versions are built from the same code (`python3 tools/build-artifact.py` ma
   - ✅ **True / False** quick rounds
   - 📝 **Practice test**: timed, no answers shown until the end, then a review of every question
   - ⏳ **Put in order**: timelines and step-by-step processes
-- **Study guides**: built-in topics have a full guide (overview, key ideas, worked examples, common mistakes, a self-check, and timelines), with 🔊 read aloud and 🖨️ print.
+- **Study guides**: every one of the 91 built-in topics has a full guide (overview, key ideas, worked examples, common mistakes, a self-check, and timelines), with 🔊 read aloud and 🖨️ print.
 - **Mistake notebook**: every missed question is saved to redo; answer it right and it leaves the notebook.
 - **Progress & badges**: study streak, a 5-week activity calendar, 13 badges, and mastery % for each topic.
 - **Quizzes**: multiple choice, type the answer (understands `3/4`, `0.75`, `25pi`, `sqrt(2)`) and flashcards. Includes an "I was actually right" override.
@@ -98,7 +98,7 @@ js/generators-subjects.js  practice questions for the other subjects
 js/generators-more.js  practice questions for the topics in library-more.js
 js/quiz.js          builds quizzes from cards / categories / exams
 js/guides.js        study guide format (parser)
-js/guides-content.js  the study guide for each built-in topic
+js/guides-*.js      the study guide for every built-in topic, one file per subject
 js/modes.js         study-mode logic: flashcards, learn, matching, true/false, tests, put in order, badges
 js/study.js         study-mode screens, study guides, mistake notebook, progress page
 js/app.js           UI views and routing
