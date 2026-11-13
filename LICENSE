@@ -1,0 +1,15 @@
+Copyright (c) 2026 Universal Study Guide. All rights reserved.
+
+The code, design and content of this website (including the study guides,
+reference sheets and practice questions) may not be copied, modified,
+republished or distributed, in whole or in part, without written permission.
+
+Visitors may use the website to study. Viewing the source code does not grant
+any right to reuse it.
+
+Third-party components keep their own licenses:
+- vendor/katex/    KaTeX, MIT License (vendor/katex/LICENSE)
+- vendor/fonts/    Inter and Bricolage Grotesque, SIL Open Font License 1.1
+                   (vendor/fonts/LICENSE-*.txt)
+- vendor/firebase/ Firebase JavaScript SDK, Apache License 2.0
+                   (vendor/firebase/LICENSE-NOTE.txt)
