@@ -587,3 +587,7 @@ mark, .hl { background: linear-gradient(transparent 52%, var(--hl-mark) 52%, var
   .index-card.top { transform: rotate(-1.5deg); }
   .key-hint { display: none; }
 }
+
+/* footer copyright line */
+.footer { display: flex; flex-direction: column; gap: .3rem; align-items: center; }
+.copyright { font-size: .78rem; }

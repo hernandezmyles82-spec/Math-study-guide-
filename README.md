@@ -108,3 +108,7 @@ vendor/firebase/    Firebase SDK 10.12.2 (Apache 2.0)
 tests/              Node tests + sample notes
 DEVELOPMENT.md      how the code works + pitfalls to avoid when changing it
 ```
+
+## License
+
+© 2026 Universal Study Guide. All rights reserved. The code, design and study content may not be copied or reused without permission; see [LICENSE](LICENSE). Third-party components in `vendor/` keep their own licenses.
