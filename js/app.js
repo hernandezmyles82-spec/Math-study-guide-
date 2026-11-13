@@ -394,7 +394,7 @@ Include every key vocabulary word, every formula, and at least 10 practice quest
       <div class="page-head">
         <div><a href="#notes" class="muted small">← My Notes</a><h1>${esc(n.title)}</h1>
         <p class="muted">${[n.course ? esc(n.course) : '', cat ? `<a href="#category--${cat.id}">${esc(cat.name)}</a>` : '', plural(cards.length, 'study card'), mastery(cards) + '% mastered'].filter(Boolean).join(' · ')}</p></div>
-        <div class="row tight"><button class="btn primary" data-action="quiz-note" data-id="${n.id}" ${cards.length ? '' : 'disabled'}>Quiz me on this</button><a class="btn" href="#note-edit--${n.id}">Edit</a><button class="btn danger" data-action="delete-note" data-id="${n.id}">Delete</button></div>
+        <div class="row tight"><button class="btn primary" data-action="quiz-note" data-id="${n.id}" ${cards.length ? '' : 'disabled'}>Quiz me on this</button><a class="btn" href="#note-edit--${n.id}">Edit</a>${window.MSG.Sync && window.MSG.Sync.inClaude && cards.length ? `<a class="btn" href="#share--${n.id}">📚 ${n.sharedId ? 'Shared' : 'Share'}</a>` : ''}<button class="btn danger" data-action="delete-note" data-id="${n.id}">Delete</button></div>
       </div>
       ${cards.length ? window.MSG.Study.modesPanel('note_' + n.id) : ''}
       <div class="tabs"><button class="tab ${tab === 'cards' ? 'active' : ''}" data-action="note-tab" data-tab="cards">Study cards (${cards.length})</button><button class="tab ${tab === 'guide' ? 'active' : ''}" data-action="note-tab" data-tab="guide">${n.guide ? 'Study guide' : '✨ Study guide'}</button><button class="tab ${tab === 'notes' ? 'active' : ''}" data-action="note-tab" data-tab="notes">My notes</button></div>
@@ -817,7 +817,7 @@ service cloud.firestore {
     else if (!Store.current() && name !== 'welcome' && name !== 'setup') name = 'welcome';
     const view = views[name] || notFound;
     $app.innerHTML = view(arg);
-    document.querySelectorAll('[data-nav]').forEach((a) => a.classList.toggle('active', a.dataset.nav === name || (name.startsWith('note') && a.dataset.nav === 'notes') || ((name === 'category' || name === 'course') && a.dataset.nav === 'categories') || (['mistakes', 'progress'].includes(name) && a.dataset.nav === 'dashboard')));
+    document.querySelectorAll('[data-nav]').forEach((a) => a.classList.toggle('active', a.dataset.nav === name || (name.startsWith('note') && a.dataset.nav === 'notes') || ((name === 'category' || name === 'course') && a.dataset.nav === 'categories') || (['share', 'shared'].includes(name) && a.dataset.nav === 'library') || (['mistakes', 'progress'].includes(name) && a.dataset.nav === 'dashboard')));
     const p = Store.current();
     document.getElementById('nav').style.visibility = p ? 'visible' : 'hidden';
     const chip = document.getElementById('profileChip');
@@ -1025,6 +1025,13 @@ service cloud.firestore {
   document.addEventListener('input', (e) => {
     const t = e.target;
     if (t.dataset.input === 'preview-notes') { clearTimeout(previewTimer); previewTimer = setTimeout(() => previewNotes(t), 250); }
+    if (t.dataset.input === 'lib-filter') {
+      sessionStorageSet('libFilter', t.value);
+      const pos = t.selectionStart;
+      route();
+      const s = $app.querySelector('[data-input=lib-filter]');
+      if (s) { s.focus(); s.setSelectionRange(pos, pos); }
+    }
     if (t.dataset.input === 'filter-cats') {
       sessionStorageSet('catFilter', t.value);
       const pos = t.selectionStart;
@@ -1105,7 +1112,11 @@ service cloud.firestore {
   window.addEventListener('hashchange', route);
   window.addEventListener('storage', () => { Store.reload(); route(); });
   // Study modes, guides, mistake notebook and progress (js/study.js) plug into this router.
-  const study = window.MSG.Study.init({ esc, fmt, md, renderMath, toast, ask, go, route, startQuiz, plural, pct, notFound });
+  const helpers = { esc, fmt, md, renderMath, toast, ask, go, route, startQuiz, plural, pct, notFound };
+  const study = window.MSG.Study.init(helpers);
   Object.assign(views, study.views); Object.assign(actions, study.actions); Object.assign(forms, study.forms);
+  // Shared library (js/shared-library.js).
+  const shared = window.MSG.SharedLibrary.init(helpers);
+  Object.assign(views, shared.views); Object.assign(actions, shared.actions); Object.assign(forms, shared.forms);
   route();
 })();

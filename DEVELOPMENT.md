@@ -30,6 +30,7 @@ global `window.MSG` namespace (or `globalThis` under Node, so the tests can `req
 | `js/generators.js` | `MSG.Generators`: per-category random problem generators keyed by the same category ids (`generate`, `js/generators.js:458`) |
 | `js/quiz.js` | `MSG.Quiz`: builds questions from cards, categories and exams; checks answers (`js/quiz.js:177`) |
 | `js/file-text.js` | `MSG.FileText`: reads uploaded PDF (pdf.js) and Word .docx (mammoth) files into notes in the browser. Loads the libraries only when needed (`loadVendor`) |
+| `js/shared-library.js` | `MSG.SharedLibrary`: the shared library on the claude.ai version (`#library`, `#share--<noteId>`, `#shared--<guideId>`). `init(helpers)` returns views, actions and forms that `js/app.js` merges |
 | `js/guides.js` | `MSG.Guides`: parses the study-guide text format (`Guides.add(raw)`, `get(id)`) |
 | `js/guides-*.js` | The study guide for every built-in topic, keyed by topic id, one file per subject (`guides-math.js`, `guides-science.js`, `guides-history.js`, `guides-english.js`, `guides-languages.js`, `guides-cs-arts.js`; `guides-content.js` holds Derivatives and U.S. History). Loaded after `js/guides.js` and before `js/modes.js` |
 | `js/modes.js` | `MSG.Modes`: logic for the study modes (decks, true/false, matching, learn, practice test, put-in-order, badges, mastery). No HTML, so the tests can run it |
@@ -127,6 +128,19 @@ weighted choice in `cardQuestion` (`js/quiz.js:66`).
 
 > ⚠️ **Watch out:** Multiple-choice distractors must never be equal in value to the answer or to each other ("2/1" vs "2"). Build them with `frac()` rather than raw `\frac{}{}` strings so equal values collapse, and keep the test in `tests/run-tests.js` that evaluates every pair of choices.
 
+### Shared library (claude.ai only)
+
+Students and teachers share a set of notes (its cards, its AI study guide, and optionally the notes text) for everyone who can open the claude.ai page; anyone can add a shared guide to their own notes, where it becomes an ordinary note (cards written as `front :: back` lines so editing keeps them, plus `note.guide`).
+
+- **Storage:** `library/<authorId>` is each author's index `{ guides: [summary…] }` (at most 50), and `library/<authorId>/guides/<guideId>` holds a guide. The library page reads all index documents with one `onSnapshot` on the `library` collection and fetches a guide's body only when it's opened.
+- **Rules** (declared when publishing, see the capabilities note above): everyone reads `library`; each person writes only `library/<their id>/…` (Contributor or above); only the site's owner can change or remove someone else's (moderation). Students' own notes stay in `data/users/<id>/`, private to each person.
+- **Links:** `SharedLibrary.SITE_URL + '#shared--' + guideId`. Inside claude.ai the page runs on a sandbox address, so the link is built from the stored claude.ai URL; update `SITE_URL` if the page ever moves.
+- A note remembers its published id (`note.sharedId`, `Store.setNoteShared`) so sharing again updates the same entry.
+
+> ⚠️ **Watch out:** Everything in the library was written by someone else. `cleanMeta` and `cleanBody` check every field (ids must be 6–40 lowercase letters or digits, text is capped, numbers are numbers) and everything is shown through `fmt`/`md`. Never insert library data as HTML or build a database path from an unchecked id.
+
+> ⚠️ **Watch out:** On the public website there is no shared database (Firebase is off), so `#library` explains that the library lives on the claude.ai version and links to it.
+
 ### Look and feel
 
 `css/styles.css` starts with the design tokens (light values on `:root`, dark values in both the `prefers-color-scheme` block and `[data-theme="dark"]`): paper background, ballpoint-blue `--primary`, highlighter `--hl-mark` (key words in guides, the current menu item), index-card `--rule` / `--rule-line` (flashcards, the landing page cards), graph-paper `--grid`, and one color per subject (`--s-math`, …). Any element with `data-subject="<slug>"` gets that subject's color as `--subj` (slug = `subjSlug(subject)` in `js/app.js`). The "Design layer" at the end of the file refines the base rules.
@@ -189,7 +203,8 @@ AI is opt-in. The note editor starts with a choice, "📝 Keep my notes as I wro
 
 > ⚠️ **Watch out:** Never replace the student's notes without their choice. The editor shows both versions and changes the textarea only on "Use formatted version", keeping the original for "Undo".
 
-> ⚠️ **Watch out:** The claude.ai page must declare `sample` along with `db`, `user` and `downloads`. Passing `capabilities` on publish replaces the whole set, so always pass all four.
+> ⚠️ **Watch out:** The claude.ai page must declare all four capabilities, with the shared library's database rules. Passing `capabilities` on publish replaces the whole set, so always pass exactly this (or omit `capabilities` to keep what is stored):
+> `{"db": {"rules": [{"path": "library", "read": "view", "write": "owner"}, {"path": "library/{self}", "read": "view", "write": "interact"}]}, "user": {}, "sample": {}, "downloads": true}`
 
 > ⚠️ **Watch out:** `[hidden] { display: none !important }` in `css/styles.css` keeps the `hidden` attribute working on elements whose class sets `display` (such as the AI panel). Without it, a "hidden" panel stays on screen outside claude.ai.
 
