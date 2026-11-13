@@ -72,7 +72,7 @@ Every mode works on a **source**, which is also in the page address: `cat_<topic
 - **Put in order** uses a guide's `## Timeline` and `## In order:` lists, and year cards (`____` + a year) from notes.
 - **Mistake notebook**: `Study.record(q, correct)` is the one place an answer is saved (spaced repetition, topic stats, streak, notebook). A miss is added with `Store.addMistake(q)`; answering the same question right anywhere removes it.
 - **Badges and mastery** are computed from saved data each time (`Modes.badges()`, `Modes.topicMastery(id)`): nothing extra is stored except `modesUsed`.
-- **Read aloud** uses the browser's speech (`speechSynthesis`), with LaTeX turned into words by `Study.speakable`. **Print** uses `@media print` in `css/styles.css` (`.no-print` hides buttons) and opens the self-check answers before printing.
+- **Read aloud** uses the browser's speech (`speechSynthesis`), with LaTeX turned into words by `Study.speakable`. **Print** (public website only: claude.ai never opens the print dialog, so `printBtn()` hides it there) uses `@media print` in `css/styles.css` (`.no-print` hides buttons) and opens the self-check answers before printing.
 
 Study guides are written in the `js/guides-*.js` files in the format documented at the top of `js/guides.js` (`@@ topic-id`, then `## Overview`, `## Key ideas`, `## Worked examples` with `Example:`/`Solution:`/`Answer:`, `## Common mistakes`, optional `## Timeline` and `## In order: …`, and `## Check yourself` with `Q:`/`A:`). The tests require every topic to have a guide, and every guide to have an overview, key ideas, common mistakes, at least 2 worked examples and 4 self-check questions, and timeline years that parse.
 

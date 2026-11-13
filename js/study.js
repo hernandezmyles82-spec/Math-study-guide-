@@ -30,6 +30,9 @@
     u.rate = 0.95;
     s.speak(u);
   }
+  // claude.ai never opens the print dialog, so the Print button only appears on the public website.
+  const canPrint = () => !(root.MSG.Sync && root.MSG.Sync.inClaude);
+  const printBtn = () => (canPrint() ? '<button class="btn small ghost" type="button" data-action="print">🖨️ Print</button>' : '');
   const speakBtn = (label) => `<button class="btn small ghost no-print" type="button" data-action="speak" title="Read aloud (press again to stop)">🔊 ${label || 'Read aloud'}</button>`;
 
   /* ---------- the study-modes panel shown on topic, course and note pages ---------- */
@@ -70,7 +73,7 @@
     g.orders.forEach((o) => parts.push(`<section class="guide-sec"><h3>${esc(o.title)}</h3><ol>${o.items.map((x) => `<li>${fmt(x)}</li>`).join('')}</ol></section>`));
     if (g.check.length) parts.push(`<section class="guide-sec"><h3>Check yourself</h3>${g.check.map((c) => `<details class="check-q"><summary>${fmt(c.q)}</summary><div>${fmt(c.a)}</div></details>`).join('')}<p class="small muted no-print">Tap a question to see the answer.</p></section>`);
     return `<div class="card guide" id="guide">
-      <div class="row spread"><h2>Study guide</h2><div class="row tight no-print">${speakBtn()}<button class="btn small ghost" type="button" data-action="print">🖨️ Print</button></div></div>
+      <div class="row spread"><h2>Study guide</h2><div class="row tight no-print">${speakBtn()}${printBtn()}</div></div>
       ${parts.join('')}
     </div>`;
   }
@@ -405,5 +408,5 @@
     };
   }
 
-  root.MSG.Study = { init, modesPanel, guideHtml, speakable, record, debug: () => ({ FC, LN, MT, OR }) /* read by the browser tests */ };
+  root.MSG.Study = { init, modesPanel, guideHtml, printBtn, speakable, record, debug: () => ({ FC, LN, MT, OR }) /* read by the browser tests */ };
 })(typeof window !== 'undefined' ? window : globalThis);

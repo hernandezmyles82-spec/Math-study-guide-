@@ -550,7 +550,7 @@ Include every key vocabulary word, every formula, and at least 10 practice quest
         <div class="stack">
           ${window.MSG.Study.guideHtml(id)}
           <div class="card ref-card">
-            <div class="row spread"><h2>Reference sheet</h2>${window.MSG.Guides.has(id) ? '' : '<button class="btn small ghost no-print" type="button" data-action="print">🖨️ Print</button>'}</div>
+            <div class="row spread"><h2>Reference sheet</h2>${window.MSG.Guides.has(id) ? '' : window.MSG.Study.printBtn()}</div>
             <dl class="ref">${c.concepts.map((k) => `<dt>${esc(k.term)}</dt><dd>${esc(k.def)}</dd>`).join('')}</dl>
           </div>
         </div>
