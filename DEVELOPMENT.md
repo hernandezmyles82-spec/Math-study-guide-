@@ -31,6 +31,8 @@ global `window.MSG` namespace (or `globalThis` under Node, so the tests can `req
 | `js/quiz.js` | `MSG.Quiz`: builds questions from cards, categories and exams; checks answers (`js/quiz.js:177`) |
 | `js/file-text.js` | `MSG.FileText`: reads uploaded PDF (pdf.js) and Word .docx (mammoth) files into notes in the browser. Loads the libraries only when needed (`loadVendor`) |
 | `js/shared-library.js` | `MSG.SharedLibrary`: the shared library on the claude.ai version (`#library`, `#share--<noteId>`, `#shared--<guideId>`). `init(helpers)` returns views, actions and forms that `js/app.js` merges |
+| `js/community.js` | `MSG.Community`: the live "students have joined" counter (claude.ai only). Each account is recorded once at `visitors/<id>` = `{ joined }`; the count is the size of that collection, kept live with `onSnapshot` and painted into `[data-live-count]` elements |
+| `js/help.js` | `MSG.Help`: the Help page (`#help`: how to use the site, and About) and Terms of use (`#terms`); both open without a profile |
 | `js/guides.js` | `MSG.Guides`: parses the study-guide text format (`Guides.add(raw)`, `get(id)`) |
 | `js/guides-*.js` | The study guide for every built-in topic, keyed by topic id, one file per subject (`guides-math.js`, `guides-science.js`, `guides-history.js`, `guides-english.js`, `guides-languages.js`, `guides-cs-arts.js`; `guides-content.js` holds Derivatives and U.S. History). Loaded after `js/guides.js` and before `js/modes.js` |
 | `js/modes.js` | `MSG.Modes`: logic for the study modes (decks, true/false, matching, learn, practice test, put-in-order, badges, mastery). No HTML, so the tests can run it |
@@ -141,6 +143,14 @@ Students and teachers share a set of notes (its cards, its AI study guide, and o
 
 > ⚠️ **Watch out:** On the public website there is no shared database (Firebase is off), so `#library` explains that the library lives on the claude.ai version and links to it.
 
+### Counter, Help, Terms
+
+- **Live counter:** only accounts that can write (Contributor and up) are counted, once each; view-only visitors read the count but aren't added. Only a join time is stored. The public website has no shared database, so it shows no counter.
+- **Help** explains every feature, with wording that changes between the claude.ai version and the website (`inClaude()`). Keep it in step when features change.
+- **Terms of use** state that the code, design and content are © the owner, all rights reserved, and may not be copied, reverse engineered or republished. The site is described as a **free, not-for-profit student project** (no ads, data never sold). Don't call it a registered nonprofit or charity unless it becomes one.
+
+> ⚠️ **Watch out:** The counter writes `visitors/<id>` on every page open where the account isn't counted yet (one `get`, at most one `set`). Keep that to a single check per page load; never write it from render code.
+
 ### Look and feel
 
 `css/styles.css` starts with the design tokens (light values on `:root`, dark values in both the `prefers-color-scheme` block and `[data-theme="dark"]`): paper background, ballpoint-blue `--primary`, highlighter `--hl-mark` (key words in guides, the current menu item), index-card `--rule` / `--rule-line` (flashcards, the landing page cards), graph-paper `--grid`, and one color per subject (`--s-math`, …). Any element with `data-subject="<slug>"` gets that subject's color as `--subj` (slug = `subjSlug(subject)` in `js/app.js`). The "Design layer" at the end of the file refines the base rules.
@@ -204,7 +214,7 @@ AI is opt-in. The note editor starts with a choice, "📝 Keep my notes as I wro
 > ⚠️ **Watch out:** Never replace the student's notes without their choice. The editor shows both versions and changes the textarea only on "Use formatted version", keeping the original for "Undo".
 
 > ⚠️ **Watch out:** The claude.ai page must declare all four capabilities, with the shared library's database rules. Passing `capabilities` on publish replaces the whole set, so always pass exactly this (or omit `capabilities` to keep what is stored):
-> `{"db": {"rules": [{"path": "library", "read": "view", "write": "owner"}, {"path": "library/{self}", "read": "view", "write": "interact"}]}, "user": {}, "sample": {}, "downloads": true}`
+> `{"db": {"rules": [{"path": "library", "read": "view", "write": "owner"}, {"path": "library/{self}", "read": "view", "write": "interact"}, {"path": "visitors", "read": "view", "write": "owner"}, {"path": "visitors/{self}", "read": "view", "write": "interact"}]}, "user": {}, "sample": {}, "downloads": true}`
 
 > ⚠️ **Watch out:** `[hidden] { display: none !important }` in `css/styles.css` keeps the `hidden` attribute working on elements whose class sets `display` (such as the AI panel). Without it, a "hidden" panel stays on screen outside claude.ai.
 
