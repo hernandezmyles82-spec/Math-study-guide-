@@ -53,13 +53,13 @@ The website has the same guide built in, with copy buttons and a settings checke
 ## 5. Allow your website's address
 
 1. In **Authentication → Settings → Authorized domains**, click **Add domain**.
-2. Add `hernandezmyles82-spec.github.io` (your GitHub Pages address).
+2. Add `www.universalstudyguide.com` (your website's address).
    `localhost` is already there for testing on your own computer.
 
 ## 6. Publish the website
 
 In the GitHub repository: **Settings → Pages → Deploy from a branch → `main` / `(root)` → Save**.
-After a minute or two the site is at https://hernandezmyles82-spec.github.io/Universal-Study-Guide/
+After a minute or two the site is at https://www.universalstudyguide.com/
 and visitors see **Log in / Create account**.
 
 ## Good to know
