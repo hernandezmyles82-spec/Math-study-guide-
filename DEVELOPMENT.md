@@ -29,6 +29,10 @@ global `window.MSG` namespace (or `globalThis` under Node, so the tests can `req
 | `js/library.js` | `MSG.Library`: the categories and their reference-sheet concepts, written as one `String.raw` block parsed at load |
 | `js/generators.js` | `MSG.Generators`: per-category random problem generators keyed by the same category ids (`generate`, `js/generators.js:458`) |
 | `js/quiz.js` | `MSG.Quiz`: builds questions from cards, categories and exams; checks answers (`js/quiz.js:177`) |
+| `js/guides.js` | `MSG.Guides`: parses the study-guide text format (`Guides.add(raw)`, `get(id)`) |
+| `js/guides-content.js` | The study guide for each built-in topic, keyed by topic id |
+| `js/modes.js` | `MSG.Modes`: logic for the study modes (decks, true/false, matching, learn, practice test, put-in-order, badges, mastery). No HTML, so the tests can run it |
+| `js/study.js` | `MSG.Study`: screens and actions for the study modes, study guides, mistake notebook and progress page. `js/app.js` calls `Study.init(helpers)` and merges the returned `views`, `actions` and `forms` into its router |
 | `js/firebase-config.js` | Firebase web settings, or `null` for no website accounts. Must load before `js/sync.js` |
 | `js/sync.js` | `MSG.SyncEngine(backend)`: saves the whole store to an online account as a manifest plus chunks, newer copy wins. Also starts claude.ai account saving when running as a claude.ai artifact (skipped when Firebase is configured) |
 | `js/accounts.js` | `MSG.Accounts`: Firebase email/password accounts; data at `users/<uid>` (+ `chunks`), protected by `firestore.rules`. Does nothing when the config is `null` |
@@ -40,7 +44,9 @@ global `window.MSG` namespace (or `globalThis` under Node, so the tests can `req
 ### Data model
 
 One profile holds `notes`, `cards`, `exams`, `activity` (per-day counts for the streak),
-`catStats` (per-category right/wrong), `sessions` and `settings`. Each card has an
+`catStats` (per-category right/wrong), `sessions`, `settings`, `starred` (card or concept id → 1),
+`mistakes` (the mistake notebook: missed questions, saved whole so they can be asked again) and
+`modesUsed` (study mode → times used, for badges). Each card has an
 `srs` block (`due`, `interval`, `ease`, `reps`, `lapses`) and `stats`. Scheduling is a
 simplified SM-2 in `Store.schedule` (`js/store.js:124`): a miss comes back in 10 minutes,
 hits go 1 day, then 3, then `interval * ease`.
@@ -53,6 +59,26 @@ or `library` (concepts added from a category, with id `lib:<category>:<index>`).
 > ⚠️ **Watch out:** Library card ids are positional (`lib:<cat>:<index>`). Reordering or inserting concepts in `js/library.js` silently re-maps students' saved progress onto different concepts. Append new concepts at the end of a category.
 
 > ⚠️ **Watch out:** `Store.importProfile` rebuilds every field of a backup by hand with the right type, because ids, dates and numbers are put into the page without escaping and a backup file can be edited by anyone. The flip side: **a field added to the data model must also be added to `importProfile`, or it is silently dropped when a student restores a backup.** The round-trip tests in `tests/run-tests.js` catch missing links (cards to notes, exams to notes) but not new fields.
+
+> ⚠️ **Watch out:** Profiles saved before `starred`, `mistakes` and `modesUsed` existed don't have them. Always go through `Store.starred()`, `Store.mistakes()` and `Store.modesUsed()`, which create them on first use; never read `p.mistakes` directly.
+
+### Study modes, guides, notebook and progress
+
+Every mode works on a **source**, which is also in the page address: `cat_<topic>`, `course_<course>`, `note_<note>`, `starred` or `deck` (`Modes.parseSource`, which rejects anything else). `Modes.deck(src)` turns it into items `{ id, front, back, term, prompt, cardId | conceptId, categoryId, topic }`. Routes: `#flashcards--<src>`, `#learn--<src>`, `#match--<src>`, `#truefalse--<src>`, `#test--<src>`, `#order--<src>`, plus `#mistakes` and `#progress`. `Study.modesPanel(src)` is the "Ways to study" card on topic, course and note pages.
+
+- **Practice test** uses the normal quiz with `startQuiz(..., { test: true, minutes })`: `answer()` moves straight on without feedback, a timer ends it, and the summary reviews every question with the student's answer.
+- **True / false** questions are ordinary `mc` questions with the choices `True` / `False`; a false one pairs a term with another card's answer and explains the right one.
+- **Learn** needs each card right twice in a row (choose, then type when the answer is short) and works in groups of 7.
+- **Put in order** uses a guide's `## Timeline` and `## In order:` lists, and year cards (`____` + a year) from notes.
+- **Mistake notebook**: `Study.record(q, correct)` is the one place an answer is saved (spaced repetition, topic stats, streak, notebook). A miss is added with `Store.addMistake(q)`; answering the same question right anywhere removes it.
+- **Badges and mastery** are computed from saved data each time (`Modes.badges()`, `Modes.topicMastery(id)`): nothing extra is stored except `modesUsed`.
+- **Read aloud** uses the browser's speech (`speechSynthesis`), with LaTeX turned into words by `Study.speakable`. **Print** uses `@media print` in `css/styles.css` (`.no-print` hides buttons) and opens the self-check answers before printing.
+
+Study guides are written in `js/guides-content.js` in the format documented at the top of `js/guides.js` (`@@ topic-id`, then `## Overview`, `## Key ideas`, `## Worked examples` with `Example:`/`Solution:`/`Answer:`, `## Common mistakes`, optional `## Timeline` and `## In order: …`, and `## Check yourself` with `Q:`/`A:`). The tests require every guide to have an overview, key ideas, common mistakes, at least 2 worked examples and 4 self-check questions, and timeline years that parse.
+
+> ⚠️ **Watch out:** A guide is the student's main explanation of a topic, so every fact, date and worked answer in it must be right. When adding one, check it against the topic's reference sheet in `js/library*.js` (they must agree) and re-solve every worked example.
+
+> ⚠️ **Watch out:** Timeline years must be different from each other (the order game needs one right answer). Write ranges as `1861–1865` and BCE dates as `3000 BCE`; `Guides.yearOf` sorts them.
 
 ### Subjects
 
@@ -89,6 +115,12 @@ weighted choice in `cardQuestion` (`js/quiz.js:66`).
 > ⚠️ **Watch out:** Typed answers forgive a one- or two-letter typo only when the answer is plain words (`U.checkText`, `js/util.js`). An earlier version also forgave math, so `x^2-1` was marked correct for `x^2+1`. For the same reason, "a or b" alternatives apply only to word answers: `x = 2 or x = -3` needs both roots.
 
 > ⚠️ **Watch out:** Multiple-choice distractors must never be equal in value to the answer or to each other ("2/1" vs "2"). Build them with `frac()` rather than raw `\frac{}{}` strings so equal values collapse, and keep the test in `tests/run-tests.js` that evaluates every pair of choices.
+
+### Security
+
+`index.html` sets a Content-Security-Policy: scripts only from the site itself, no inline scripts or `on…=` attributes, no plugins, and network connections only to the site and Firebase. Text from notes, names and backups is always escaped (`U.esc`), and `Store.importProfile` rebuilds every field of a backup.
+
+> ⚠️ **Watch out:** Never add an inline `<script>` or an `onclick=`/`onload=` attribute: the policy blocks it and the feature silently stops working. Put the code in a `.js` file and use `data-action`. A new outside service (an API, a CDN) needs its host added to the policy. The claude.ai build leaves the policy out, because claude.ai sets its own and the page there is one inlined file.
 
 ### Rendering math
 

@@ -52,7 +52,10 @@
     } catch (e) { /* leave raw text */ }
   }
   window.MSG.rerenderMath = () => renderMath($app);
+  // KaTeX loads with `defer`; render once it is there (the security policy forbids an inline onload attribute).
+  window.addEventListener('load', () => renderMath($app));
   window.MSG.route = () => route();
+  window.MSG.quizState = () => session; // read by the browser tests
 
   const countdown = (n) => (n === 0 ? 'Today!' : n === 1 ? 'Tomorrow' : 'in ' + n + ' days');
   const pct = (r, t) => (t ? Math.round((100 * r) / t) : null);
@@ -208,6 +211,11 @@
           : `<p class="muted">Got a quiz or test coming up? Add it and we'll build a practice test from your notes.</p>`}
           <a class="btn" href="#exams">+ Add a test date</a>
         </div>
+      </div>
+      <div class="grid three">
+        <a class="card cat-card" href="#mistakes"><span class="cat-icon">📕</span><span><b>Mistake notebook</b><span class="muted small">${Store.mistakes().length ? plural(Store.mistakes().length, 'question') + ' to fix' : 'Empty. Nice!'}</span></span></a>
+        <a class="card cat-card" href="#progress"><span class="cat-icon">🏆</span><span><b>Progress & badges</b><span class="muted small">${window.MSG.Modes.badges().filter((b) => b.got).length} badges earned${st.streak ? ' · 🔥 ' + plural(st.streak, 'day') : ''}</span></span></a>
+        ${Object.keys(Store.starred()).length ? `<a class="card cat-card" href="#flashcards--starred"><span class="cat-icon">⭐</span><span><b>Starred cards</b><span class="muted small">${plural(Object.keys(Store.starred()).length, 'card')} as flashcards</span></span></a>` : (st.cards ? `<a class="card cat-card" href="#flashcards--deck"><span class="cat-icon">🃏</span><span><b>All my cards</b><span class="muted small">Study ${plural(st.cards, 'card')} as flashcards</span></span></a>` : `<a class="card cat-card" href="#categories"><span class="cat-icon">📚</span><span><b>Study guides</b><span class="muted small">Guides and practice for ${Library.categories.length} topics</span></span></a>`)}
       </div>
       ${weak.length ? `<div class="card"><h2>🎯 Weak spots to work on</h2><ul class="list">${weak.map(([k, s, r]) => `<li><div><b>${esc(k)}</b> <span class="muted small">${Math.round(r * 100)}% correct (${s.right}/${s.right + s.wrong})</span></div>${s.kind === 'cat' ? `<a class="btn small" href="#category--${s.id}">Practice</a>` : `<button class="btn small" data-action="start-topic" data-topic="${esc(k)}">Practice</button>`}</li>`).join('')}</ul></div>` : ''}
       <div class="grid two">
@@ -375,6 +383,7 @@ Include every key vocabulary word, every formula, and at least 10 practice quest
         <p class="muted">${[n.course ? esc(n.course) : '', cat ? `<a href="#category--${cat.id}">${esc(cat.name)}</a>` : '', plural(cards.length, 'study card'), mastery(cards) + '% mastered'].filter(Boolean).join(' · ')}</p></div>
         <div class="row tight"><button class="btn primary" data-action="quiz-note" data-id="${n.id}" ${cards.length ? '' : 'disabled'}>Quiz me on this</button><a class="btn" href="#note-edit--${n.id}">Edit</a><button class="btn danger" data-action="delete-note" data-id="${n.id}">Delete</button></div>
       </div>
+      ${cards.length ? window.MSG.Study.modesPanel('note_' + n.id) : ''}
       <div class="tabs"><button class="tab ${tab === 'cards' ? 'active' : ''}" data-action="note-tab" data-tab="cards">Study cards (${cards.length})</button><button class="tab ${tab === 'notes' ? 'active' : ''}" data-action="note-tab" data-tab="notes">My notes</button></div>
       ${tab === 'notes' ? `<div class="card notes-body">${md(n.content)}</div>` : `
         <div class="card">
@@ -392,7 +401,7 @@ Include every key vocabulary word, every formula, and at least 10 practice quest
     return `<div class="card-row" data-card="${c.id}">
       <div class="cr-main"><div class="cr-front">${fmt(c.front)}</div><div class="cr-back">${fmt(c.back)}</div>
       <div class="muted small">${esc(c.topic || '')}${tot ? ` · ${c.stats.right}/${tot} correct` : ' · not studied yet'}${c.srs.interval >= 7 ? ' · ⭐ mastered' : ''}</div></div>
-      <div class="cr-actions"><button class="icon-btn" title="Edit" data-action="edit-card" data-id="${c.id}">✏️</button><button class="icon-btn" title="Delete" data-action="delete-card" data-id="${c.id}">🗑️</button></div>
+      <div class="cr-actions"><button class="icon-btn" title="${Store.isStarred(c.id) ? 'Unstar' : 'Star'}" data-action="star-card" data-id="${c.id}">${Store.isStarred(c.id) ? '⭐' : '☆'}</button><button class="icon-btn" title="Edit" data-action="edit-card" data-id="${c.id}">✏️</button><button class="icon-btn" title="Delete" data-action="delete-card" data-id="${c.id}">🗑️</button></div>
     </div>`;
   }
   function sessionStorageGet(k) { try { return sessionStorage.getItem(k); } catch (e) { return null; } }
@@ -488,7 +497,7 @@ Include every key vocabulary word, every formula, and at least 10 practice quest
     return head('Study Categories', `No notes needed: ${Library.categories.length} topics across ${groups.length} subjects, from elementary school to AP, IB and college.`) + tabs + bandChips + subjChips + (body || '<p class="muted">No topics match your search.</p>');
     function catCard(c) {
       const s = p.catStats[c.id];
-      return `<a class="card cat-card" href="#category--${c.id}"><span class="cat-icon">${c.icon}</span><span><b>${esc(c.name)}</b><span class="band band-${c.band}">${BAND_SHORT[c.band]}</span><span class="muted small">${esc(c.blurb)}</span>${s ? `<span class="small score ${pct(s.right, s.right + s.wrong) >= 80 ? 'good' : 'ok'}">${pct(s.right, s.right + s.wrong)}% · ${s.right + s.wrong} answered</span>` : ''}</span></a>`;
+      return `<a class="card cat-card" href="#category--${c.id}"><span class="cat-icon">${c.icon}</span><span><b>${esc(c.name)}</b><span class="band band-${c.band}">${BAND_SHORT[c.band]}</span><span class="muted small">${esc(c.blurb)}</span>${s ? `<span class="small score ${window.MSG.Modes.topicMastery(c.id) >= 80 ? 'good' : 'ok'}">${window.MSG.Modes.topicMastery(c.id)}% mastered · ${s.right + s.wrong} answered</span>` : ''}${window.MSG.Guides.has(c.id) ? '<span class="small muted">📘 Study guide</span>' : ''}</span></a>`;
     }
   }
 
@@ -508,6 +517,7 @@ Include every key vocabulary word, every formula, and at least 10 practice quest
           <div class="topic-links">${topics.map((t) => `<a class="chip-btn" href="#category--${t.id}">${t.icon} ${esc(t.name)}</a>`).join('')}</div>
         </div>
         <div class="stack">
+          ${window.MSG.Study.modesPanel('course_' + c.id)}
           <form class="card stack" data-form="practice-course" data-id="${c.id}">
             <h2>✍️ Practice this course</h2>
             <p class="small muted">Questions drawn from all ${topics.length} topics above, new every time.</p>
@@ -534,24 +544,28 @@ Include every key vocabulary word, every formula, and at least 10 practice quest
     return `
       <div class="page-head"><div><a href="#categories" class="muted small">← Categories</a><h1>${c.icon} ${esc(c.name)}</h1><p class="muted"><span class="band band-${c.band}">${BAND_SHORT[c.band]}</span> ${esc(c.subject === c.level ? c.subject : c.subject + ' · ' + c.level)} · ${esc(c.blurb)}</p>${(() => { const cs = window.MSG.Courses.list.filter((k) => k.topics.includes(c.id)); return cs.length ? `<p class="small">Used in: ${cs.map((k) => `<a href="#course--${k.id}">${esc(k.name)}</a>`).join(', ')}</p>` : ''; })()}</div></div>
       <div class="grid editor">
-        <div class="card">
-          <h2>📖 Reference sheet</h2>
-          <dl class="ref">${c.concepts.map((k) => `<dt>${esc(k.term)}</dt><dd>${esc(k.def)}</dd>`).join('')}</dl>
+        <div class="stack">
+          ${window.MSG.Study.guideHtml(id)}
+          <div class="card ref-card">
+            <div class="row spread"><h2>📖 Reference sheet</h2>${window.MSG.Guides.has(id) ? '' : '<button class="btn small ghost no-print" type="button" data-action="print">🖨️ Print</button>'}</div>
+            <dl class="ref">${c.concepts.map((k) => `<dt>${esc(k.term)}</dt><dd>${esc(k.def)}</dd>`).join('')}</dl>
+          </div>
         </div>
         <div class="stack">
-          <form class="card stack" data-form="practice" data-id="${id}">
+          ${window.MSG.Study.modesPanel('cat_' + id)}
+          <form class="card stack no-print" data-form="practice" data-id="${id}">
             <h2>✍️ Practice</h2>
             <p class="small muted">${Generators.has(id) ? 'A new set of problems every time, mixed with concept questions.' : 'Concept questions from the reference sheet.'}</p>
             <fieldset class="seg"><legend>Difficulty</legend>${['Easy', 'Medium', 'Hard'].map((l, i) => `<label><input type="radio" name="d" value="${i + 1}" ${diff === i + 1 ? 'checked' : ''}><span>${l}</span></label>`).join('')}</fieldset>
             <label>Questions<select name="n">${[5, 10, 15, 20].map((n) => `<option ${n === p.settings.quizLength ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
             <button class="btn primary" type="submit">Start practice</button>
           </form>
-          <div class="card">
+          <div class="card no-print">
             <h3>🔁 Remember it long-term</h3>
             <p class="small">${added ? 'These key concepts are in your daily review deck.' : 'Add these key concepts to your daily review so they come back over time.'}</p>
             <button class="btn small" data-action="${added ? 'remove-lib' : 'add-lib'}" data-id="${id}">${added ? 'Remove from my deck' : '+ Add ' + c.concepts.length + ' cards to my deck'}</button>
           </div>
-          ${s ? `<div class="card"><h3>📊 Your stats</h3><p>${s.right} correct out of ${s.right + s.wrong} (${pct(s.right, s.right + s.wrong)}%)</p></div>` : ''}
+          ${s ? `<div class="card no-print"><h3>📊 Your stats</h3><p>${s.right} correct out of ${s.right + s.wrong} (${pct(s.right, s.right + s.wrong)}%)</p><p class="small">Mastery: <b>${window.MSG.Modes.topicMastery(id)}%</b></p><div class="meter"><div style="width:${window.MSG.Modes.topicMastery(id)}%"></div></div></div>` : ''}
         </div>
       </div>`;
   }
@@ -658,7 +672,8 @@ service cloud.firestore {
     opts = opts || {};
     questions = (questions || []).filter(Boolean);
     if (!questions.length) { toast('No questions available yet. Add some notes or pick a category first.'); return; }
-    session = { title, questions, i: 0, results: [], answered: false, correct: false, response: null, requeue: !!opts.requeue, requeued: new Map(), back: opts.back || '#dashboard', record: opts.record !== false, startedAt: Date.now() };
+    session = { title, questions, i: 0, results: [], answered: false, correct: false, response: null, requeue: !!opts.requeue, requeued: new Map(), back: opts.back || '#dashboard', record: opts.record !== false, startedAt: Date.now(),
+      total0: questions.length, test: !!opts.test, endsAt: opts.minutes ? Date.now() + opts.minutes * 60000 : 0 };
     go('#quiz');
   }
 
@@ -697,11 +712,12 @@ service cloud.firestore {
     }
     return `
       <div class="quiz">
-        <div class="quiz-head"><div><b>${esc(session.title)}</b><div class="muted small">Question ${session.i + 1} of ${total} · ${right} correct${session.requeue ? ' · 🔥 cram mode' : ''}</div></div><button class="btn small ghost" data-action="end-quiz">End quiz</button></div>
+        <div class="quiz-head"><div><b>${esc(session.title)}</b><div class="muted small">Question ${session.i + 1} of ${total}${session.test ? '' : ' · ' + right + ' correct'}${session.requeue ? ' · 🔥 cram mode' : ''}${session.endsAt ? ` · ⏱ <span id="quizTime">${timeLeft()}</span> left` : ''}</div></div><button class="btn small ghost" data-action="end-quiz">${session.test ? 'Finish test' : 'End quiz'}</button></div>
         <div class="progress"><div style="width:${(100 * session.i) / total}%"></div></div>
         <div class="card question">
           ${q.topic ? `<span class="chip">${esc(q.topic)}</span>` : ''}
           <div class="prompt">${fmt(q.prompt)}</div>
+          <button class="btn small ghost" type="button" data-action="speak" title="Read aloud (press again to stop)">🔊 Read aloud</button>
           ${body}
           ${feedback}
         </div>
@@ -709,20 +725,24 @@ service cloud.firestore {
       </div>`;
   }
   const pick = U.pick;
+  function timeLeft() { const s = Math.max(0, Math.round((session.endsAt - Date.now()) / 1000)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
+  setInterval(() => {
+    if (!session || !session.endsAt || session.i >= session.questions.length) return;
+    const t = document.getElementById('quizTime');
+    if (t) t.textContent = timeLeft();
+    if (Date.now() >= session.endsAt && location.hash.startsWith('#quiz')) { toast('⏰ Time\'s up!'); actions['end-quiz'](); }
+  }, 1000);
 
   function answer(correct, response) {
     session.answered = true; session.correct = correct; session.response = response;
+    if (session.test) { next(); return; } // practice test: no answers until the end
     route();
   }
   function commitAnswer() {
     const q = session.questions[session.i];
     const correct = session.correct;
-    session.results.push({ q, correct });
-    if (session.record) {
-      if (q.cardId) Store.recordCard(q.cardId, correct);
-      if (q.categoryId && !q.cardId) Store.recordCategory(q.categoryId, correct);
-      Store.recordActivity(correct);
-    }
+    session.results.push({ q, correct, response: session.response });
+    if (session.record) window.MSG.Study.record(q, correct); // spaced repetition, topic stats, streak, mistake notebook
     if (!correct && session.requeue) {
       const n = session.requeued.get(q) || 0;
       if (n < 3) {
@@ -757,11 +777,12 @@ service cloud.firestore {
         <div class="card summary">
           <h1>${esc(session.title)}: done!</h1>
           <div class="big-score ${p >= 80 ? 'good' : p >= 60 ? 'ok' : 'bad'}">${p}%</div>
-          <p>${right} of ${rs.length} correct${session.requeue && missed.length ? ` (missed questions were repeated until you got them right)` : ''}</p>
+          <p>${right} of ${rs.length} correct${session.test && rs.length < session.total0 ? ` (${session.total0 - rs.length} not answered)` : ''}${session.requeue && missed.length ? ` (missed questions were repeated until you got them right)` : ''}</p>
           <p class="lead">${msg}</p>
-          <div class="row center">${uniqueMissed.length ? '<button class="btn primary" data-action="retry-missed">Retry missed questions</button>' : ''}<a class="btn" href="${session.back}">Done</a></div>
+          <div class="row center">${uniqueMissed.length ? '<button class="btn primary" data-action="retry-missed">Retry missed questions</button>' : ''}${missed.length ? '<a class="btn" href="#mistakes">📕 Mistake notebook</a>' : ''}<a class="btn" href="${session.back}">Done</a></div>
         </div>
-        ${uniqueMissed.length ? `<div class="card"><h2>Review what you missed</h2><div class="card-list">${uniqueMissed.map((q) => `<div class="card-row"><div class="cr-main"><div class="cr-front">${fmt(q.prompt)}</div><div class="cr-back">✔ ${fmt(q.kind === 'mc' ? q.choices[q.correct] : q.answerDisplay)}</div>${q.explain ? `<div class="muted small">${fmt(q.explain)}</div>` : ''}</div></div>`).join('')}</div></div>` : ''}
+        ${session.test ? `<div class="card"><h2>Review every question</h2><div class="card-list">${rs.map((r, n) => `<div class="card-row ${r.correct ? 'right' : 'wrong'}"><div class="cr-main"><div class="cr-front"><b>${n + 1}.</b> ${r.correct ? '✅' : '❌'} ${fmt(r.q.prompt)}</div>${r.correct ? '' : `<div class="small">Your answer: ${r.response === '' || r.response == null ? '<i>skipped</i>' : fmt(r.q.kind === 'mc' ? r.q.choices[Number(r.response)] : r.q.kind === 'flash' ? (r.response === '1' ? 'knew it' : 'missed it') : r.response)}</div>`}<div class="cr-back">✔ ${fmt(r.q.kind === 'mc' ? r.q.choices[r.q.correct] : r.q.answerDisplay)}</div>${r.q.explain ? `<div class="muted small">${fmt(r.q.explain)}</div>` : ''}</div></div>`).join('')}</div></div>` : ''}
+        ${uniqueMissed.length && !session.test ? `<div class="card"><h2>Review what you missed</h2><div class="card-list">${uniqueMissed.map((q) => `<div class="card-row"><div class="cr-main"><div class="cr-front">${fmt(q.prompt)}</div><div class="cr-back">✔ ${fmt(q.kind === 'mc' ? q.choices[q.correct] : q.answerDisplay)}</div>${q.explain ? `<div class="muted small">${fmt(q.explain)}</div>` : ''}</div></div>`).join('')}</div></div>` : ''}
       </div>`;
   }
 
@@ -783,7 +804,7 @@ service cloud.firestore {
     else if (!Store.current() && name !== 'welcome' && name !== 'setup') name = 'welcome';
     const view = views[name] || notFound;
     $app.innerHTML = view(arg);
-    document.querySelectorAll('[data-nav]').forEach((a) => a.classList.toggle('active', a.dataset.nav === name || (name.startsWith('note') && a.dataset.nav === 'notes') || ((name === 'category' || name === 'course') && a.dataset.nav === 'categories')));
+    document.querySelectorAll('[data-nav]').forEach((a) => a.classList.toggle('active', a.dataset.nav === name || (name.startsWith('note') && a.dataset.nav === 'notes') || ((name === 'category' || name === 'course') && a.dataset.nav === 'categories') || (['mistakes', 'progress'].includes(name) && a.dataset.nav === 'dashboard')));
     const p = Store.current();
     document.getElementById('nav').style.visibility = p ? 'visible' : 'hidden';
     const chip = document.getElementById('profileChip');
@@ -866,6 +887,7 @@ service cloud.firestore {
     'delete-exam': async (el) => { if (await ask('Delete this test?')) { Store.deleteExam(el.dataset.id); route(); } },
     'delete-note': async (el) => { if (await ask('Delete these notes and all their study cards?')) { Store.deleteNote(el.dataset.id); go('#notes'); toast('Notes deleted'); } },
     'note-tab': (el) => { sessionStorageSet('noteTab', el.dataset.tab); route(); },
+    'star-card': (el) => { Store.toggleStar(el.dataset.id); route(); },
     'delete-card': (el) => { Store.deleteCard(el.dataset.id); route(); },
     'edit-card': (el) => {
       const c = Store.card(el.dataset.id);
@@ -903,7 +925,7 @@ service cloud.firestore {
     'retry-missed': () => {
       const missed = Array.from(new Set(session.results.filter((r) => !r.correct).map((r) => r.q)));
       const qs = missed.map((q) => { const card = q.cardId && Store.card(q.cardId); return card ? Quiz.cardQuestion(card, Store.current().cards) : q; });
-      startQuiz(session.title.replace(/ \(retry\)$/, '') + ' (retry)', U.shuffle(qs), { requeue: session.requeue, back: session.back });
+      startQuiz(session.title.replace(/ \(retry\)$/, '') + ' (retry)', U.shuffle(qs), { requeue: session.requeue, back: session.back }); // answers shown again, even after a practice test
     }
   };
 
@@ -1046,5 +1068,8 @@ service cloud.firestore {
   window.MSG.onCloudLoad = () => { if (!location.hash.startsWith('#quiz')) route(); else toast('Your saved notes were loaded.'); };
   window.addEventListener('hashchange', route);
   window.addEventListener('storage', () => { Store.reload(); route(); });
+  // Study modes, guides, mistake notebook and progress (js/study.js) plug into this router.
+  const study = window.MSG.Study.init({ esc, fmt, md, renderMath, toast, ask, go, route, startQuiz, plural, pct, notFound });
+  Object.assign(views, study.views); Object.assign(actions, study.actions); Object.assign(forms, study.forms);
   route();
 })();
