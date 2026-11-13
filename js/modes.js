@@ -161,6 +161,33 @@
     return U.shuffle(qs).slice(0, n);
   }
 
+  /* ---------- study guides behind a source ---------- */
+  /* A note's AI-made guide, parsed (or null). */
+  function noteGuide(note) { return note && note.guide ? Guides.parseOne('note_' + note.id, note.guide) : null; }
+  function guidesFor(src) {
+    const s = parseSource(src);
+    if (!s) return [];
+    if (s.type === 'cat') return [Guides.get(s.id)].filter(Boolean);
+    if (s.type === 'course') { const c = root.MSG.Courses.get(s.id); return c ? c.topics.map((t) => Guides.get(t)).filter(Boolean) : []; }
+    if (s.type === 'note') return [noteGuide(Store.note(s.id))].filter(Boolean);
+    return [];
+  }
+
+  /* ---------- written answers ---------- */
+  const plain = (t) => String(t).replace(/\\\(|\\\)|\$/g, ' ');
+  /* Marks for a question, from how much its model answer says. */
+  function marksFor(model) { const w = wordCount(plain(model)); return w <= 6 ? 1 : w <= 20 ? 2 : 3; }
+  /* Exam-style questions with model answers: a guide's self-check first, then "explain" questions from the cards. */
+  function writtenQuestions(src, n) {
+    const d = deck(src);
+    if (!d) return [];
+    const fromGuides = U.shuffle([].concat(...guidesFor(src).map((g) => g.check.map((c) => ({ question: c.q, model: c.a, categoryId: Library.get(g.id) ? g.id : null })))));
+    const fromCards = U.shuffle(d.items.filter((it) => it.back && wordCount(plain(it.back)) >= 2).map((it) => ({ question: it.term ? 'Explain what **' + it.term + '** means.' : it.prompt, model: it.back, categoryId: it.categoryId || null, cardId: it.cardId || null, conceptId: it.conceptId || null })));
+    const seen = new Set();
+    return fromGuides.concat(fromCards).filter((q) => { const k = norm(q.question); if (!k || seen.has(k) || !String(q.model).trim()) return false; seen.add(k); return true; })
+      .slice(0, n || 8).map((q) => Object.assign(q, { marks: marksFor(q.model) }));
+  }
+
   /* ---------- put it in order ---------- */
   /* Sets that can be put in order: a guide's timeline and step lists, and year cards from notes. */
   function orderSets(src) {
@@ -177,6 +204,10 @@
     if (s.type === 'cat') fromGuide(s.id);
     if (s.type === 'course') { const c = root.MSG.Courses.get(s.id); if (c) c.topics.forEach(fromGuide); }
     if (s.type === 'note') {
+      guidesFor(src).forEach((g) => {
+        if (g.timeline.length >= 4) out.push({ title: 'Timeline from my study guide', kind: 'time', items: g.timeline.map((t) => ({ label: t.label, show: t.when, key: t.year })) });
+        g.orders.forEach((o) => out.push({ title: o.title, kind: 'steps', items: o.items.map((x, i) => ({ label: x, show: 'Step ' + (i + 1), key: i })) }));
+      });
       const items = [];
       Store.cardsForNote(s.id).forEach((c) => {
         const y = Guides.yearOf(String(c.back).trim());
@@ -217,7 +248,7 @@
     const perfect = p.sessions.some((x) => x.total >= 5 && x.right === x.total);
     const topicsTried = Object.keys(p.catStats).length;
     const masteredTopics = Object.keys(p.catStats).filter((id) => topicMastery(id) >= 80).length;
-    const modes = ['flash', 'learn', 'match', 'tf', 'test', 'order'].filter((m) => used[m]).length;
+    const modes = ['flash', 'learn', 'match', 'tf', 'test', 'order', 'write'].filter((m) => used[m]).length;
     const B = (id, icon, name, how, got) => ({ id, icon, name, how, got: !!got });
     return [
       B('first', '🌱', 'First steps', 'Answer your first question', st.total >= 1),
@@ -236,5 +267,5 @@
     ];
   }
 
-  root.MSG.Modes = { parseSource, deck, itemById, trueFalse, trueFalseSet, matchRounds, learnStart, learnQuestion, learnAnswer, practiceTest, orderSets, orderRound, orderScore, mistakeQuestions, topicMastery, badges };
+  root.MSG.Modes = { parseSource, deck, noteGuide, guidesFor, writtenQuestions, marksFor, itemById, trueFalse, trueFalseSet, matchRounds, learnStart, learnQuestion, learnAnswer, practiceTest, orderSets, orderRound, orderScore, mistakeQuestions, topicMastery, badges };
 })(typeof window !== 'undefined' ? window : globalThis);

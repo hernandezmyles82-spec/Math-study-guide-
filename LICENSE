@@ -13,3 +13,5 @@ Third-party components keep their own licenses:
                    (vendor/fonts/LICENSE-*.txt)
 - vendor/firebase/ Firebase JavaScript SDK, Apache License 2.0
                    (vendor/firebase/LICENSE-NOTE.txt)
+- vendor/pdfjs/    pdf.js, Apache License 2.0 (vendor/pdfjs/LICENSE)
+- vendor/mammoth/  mammoth, BSD 2-Clause License (vendor/mammoth/LICENSE)

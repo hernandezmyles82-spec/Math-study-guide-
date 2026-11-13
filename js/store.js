@@ -95,6 +95,12 @@
       save();
       return note;
     },
+    /* An AI-made study guide for a note (text in the js/guides.js format), or null to remove it. */
+    setNoteGuide(id, text) {
+      const n = S.note(id); if (!n) return;
+      if (text) { n.guide = String(text).slice(0, 60000); n.guideAt = Date.now(); } else { delete n.guide; delete n.guideAt; }
+      save();
+    },
     deleteNote(id) {
       const p = S.current();
       p.notes = p.notes.filter((n) => n.id !== id);
@@ -257,7 +263,9 @@
       const noteIds = new Map();
       const notes = src.notes.map((x) => {
         const id = safeId(x.id); noteIds.set(x.id, id);
-        return { id, title: str(x.title, 200) || 'Untitled notes', course: str(x.course, 100), categoryId: safeId(x.categoryId || 'none').replace(/^none$/, ''), content: str(x.content), createdAt: n(x.createdAt, Date.now()), updatedAt: n(x.updatedAt, Date.now()) };
+        const note = { id, title: str(x.title, 200) || 'Untitled notes', course: str(x.course, 100), categoryId: safeId(x.categoryId || 'none').replace(/^none$/, ''), content: str(x.content), createdAt: n(x.createdAt, Date.now()), updatedAt: n(x.updatedAt, Date.now()) };
+        if (x.guide) { note.guide = str(x.guide, 60000); note.guideAt = n(x.guideAt, Date.now()); }
+        return note;
       });
       const seen = new Set();
       const cards = src.cards.filter((c) => c && c.front != null && c.back != null).map((c) => {

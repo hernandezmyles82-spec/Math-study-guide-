@@ -17,6 +17,9 @@
                                                  or "4.6 billion years ago")
      ## In order: Steps of mitosis
      - Prophase: chromosomes condense            (listed in the correct order)
+     ## Concept map                               (AI guides made from a student's notes)
+     Center: the main topic
+     - Big idea: detail; detail; detail
      ## Check yourself
      Q: a question
      A: its answer
@@ -36,7 +39,7 @@
   }
 
   function parseOne(id, text) {
-    const g = { id, sections: [], examples: [], check: [], timeline: [], orders: [] };
+    const g = { id, sections: [], examples: [], check: [], timeline: [], orders: [], map: null };
     let sec = null;
     let ex = null, q = null;
     const lines = text.replace(/\r\n?/g, '\n').split('\n');
@@ -47,7 +50,8 @@
         const title = m[1].trim();
         ex = null; q = null;
         if (/^in order\b/i.test(title)) { sec = { kind: 'order', title: title.replace(/^in order\s*:?\s*/i, '') || 'Put these in order', items: [] }; g.orders.push(sec); continue; }
-        const kind = /^worked examples?$/i.test(title) ? 'examples' : /^check yourself$/i.test(title) ? 'check' : /^timeline$/i.test(title) ? 'timeline' : 'text';
+        const kind = /^worked examples?$/i.test(title) ? 'examples' : /^check yourself$/i.test(title) ? 'check' : /^timeline$/i.test(title) ? 'timeline' : /^concept map$/i.test(title) ? 'map' : 'text';
+        if (kind === 'map') g.map = g.map || { center: '', branches: [] };
         sec = { kind, title, lines: [] };
         if (kind === 'text') g.sections.push(sec);
         continue;
@@ -55,6 +59,11 @@
       if (!sec || !line) { if (sec && sec.kind === 'text') sec.lines.push(''); continue; }
       if (sec.kind === 'text') { sec.lines.push(raw.replace(/\s+$/, '')); continue; }
       if (sec.kind === 'order') { if ((m = line.match(/^[-*]\s+(.*)$/))) sec.items.push(m[1]); continue; }
+      if (sec.kind === 'map') {
+        if ((m = line.match(/^center:\s*(.+)$/i))) g.map.center = m[1].trim();
+        else if ((m = line.match(/^[-*]\s+([^:]+?)(?::\s*(.*))?$/))) g.map.branches.push({ label: m[1].trim(), items: (m[2] || '').split(';').map((x) => x.trim()).filter(Boolean).slice(0, 6) });
+        continue;
+      }
       if (sec.kind === 'timeline') {
         if ((m = line.match(/^[-*]\s+([^:]+?):\s+(.*)$/))) { const y = yearOf(m[1].trim()); if (y != null) g.timeline.push({ when: m[1].trim(), year: y, label: m[2] }); }
         continue;
@@ -76,6 +85,8 @@
     g.sections.forEach((s) => { s.text = s.lines.join('\n').trim(); delete s.lines; });
     g.sections = g.sections.filter((s) => s.text);
     g.orders = g.orders.filter((o) => o.items.length >= 3);
+    if (g.map && (!g.map.center || g.map.branches.length < 2)) g.map = null;
+    if (g.map) g.map.branches = g.map.branches.slice(0, 8);
     return g;
   }
 

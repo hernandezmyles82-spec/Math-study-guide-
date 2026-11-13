@@ -193,5 +193,23 @@ ok(mi.mistakes.length === 1 && mi.starred['lib:derivatives:1'] === 1, 'notebook 
 ok(Store.clearMistake(mq) === true && Store.mistakes().length === 0, 'answering right clears a mistake');
 ok(Modes.badges().length >= 10 && Modes.badges().every((b) => b.name && b.how), 'badges');
 
+// written answers, AI guides for notes, grading
+Store._reset(); Store.createProfile('Write');
+Library.categories.forEach((c) => { const qs = Modes.writtenQuestions('cat_' + c.id, 8); ok(qs.length >= 4 && qs.every((q) => q.question && q.model && [1, 2, 3].includes(q.marks)), c.id + ' written-answer questions'); });
+ok(Modes.marksFor('Abiotic') === 1 && Modes.marksFor('It declared the 13 colonies independent from Britain, on July 4, 1776.') === 2, 'marks from model answer length');
+const AF = globalThis.MSG.AIFormat;
+ok(/ONLY facts that are in the notes/.test(AF.guidePrompt('n', 't')) && AF.cleanGuide('Sure!\n## Overview\nx') === '## Overview\nx' && AF.cleanGuide('no headings') === '', 'guide prompt and cleanup');
+ok(AF.parseGrade('Here: {"score": 9, "earned": ["a", 5], "missing": [], "tip": "t"}', 2).score === 2 && AF.parseGrade('{"score":"x"}', 2) === null && AF.parseGrade('nothing', 2) === null, 'grade parsing is checked and capped');
+ok(/worth 3 marks/.test(AF.gradePrompt({ question: 'q', model: 'm', answer: 'a', marks: 3 })), 'grade prompt');
+const gn = Store.addNote({ title: 'Cells', content: 'x' }, cards);
+Store.setNoteGuide(gn.id, '## Overview\nAbout cells.\n## Concept map\nCenter: Cells\n- Parts: nucleus; ribosome\n- Transport: osmosis\n## Timeline\n- 1665: Hooke sees cells\n- 1838: plant cell theory\n- 1839: animal cell theory\n- 1855: cells from cells\n## Check yourself\nQ: What holds DNA?\nA: The nucleus holds the cell\'s DNA.\nQ: What is osmosis?\nA: Diffusion of water across a membrane.');
+const ng = Modes.noteGuide(Store.note(gn.id));
+ok(ng.map && ng.map.branches.length === 2 && ng.check.length === 2, 'note guide parses, with a concept map');
+ok(Modes.orderSets('note_' + gn.id).some((x) => x.title === 'Timeline from my study guide'), 'note guide timeline feeds the order game');
+ok(Modes.writtenQuestions('note_' + gn.id, 8).some((q) => q.question === 'What holds DNA?'), 'note guide feeds written answers');
+const gb = Store.importProfile(Store.exportProfile());
+ok(gb.notes.find((x) => x.title === 'Cells').guide.startsWith('## Overview'), 'note guide survives backup');
+Store.setNoteGuide(gn.id, null); ok(!Store.note(gn.id).guide, 'note guide can be removed');
+
 console.log(`${passes} passed, ${fails} failed (${generated} generated problems checked)`);
 process.exit(fails ? 1 : 0);

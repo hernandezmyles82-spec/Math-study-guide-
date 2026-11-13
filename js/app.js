@@ -55,6 +55,16 @@
   // KaTeX loads with `defer`; render once it is there (the security policy forbids an inline onload attribute).
   window.addEventListener('load', () => renderMath($app));
   window.MSG.route = () => route();
+  /* Light / dark switch. "auto" leaves the theme to the device (and to claude.ai, which sets data-theme itself). */
+  const THEMES = ['auto', 'light', 'dark'];
+  function themeNow() { try { return THEMES.includes(localStorage.getItem('usg:theme')) ? localStorage.getItem('usg:theme') : 'auto'; } catch (e) { return 'auto'; } }
+  function applyTheme(t, changed) {
+    const r = document.documentElement;
+    if (t === 'auto') { if (changed) r.removeAttribute('data-theme'); } else r.setAttribute('data-theme', t);
+    const b = document.getElementById('themeBtn');
+    if (b) { b.textContent = t === 'dark' ? '🌙' : t === 'light' ? '☀️' : '🌓'; b.title = t === 'auto' ? 'Theme: matches your device (click for light)' : t === 'light' ? 'Theme: light (click for dark)' : 'Theme: dark (click to match your device)'; b.setAttribute('aria-label', b.title); }
+  }
+  applyTheme(themeNow(), false);
   window.MSG.quizState = () => session; // read by the browser tests
 
   const countdown = (n) => (n === 0 ? 'Today!' : n === 1 ? 'Tomorrow' : 'in ' + n + ' days');
@@ -163,9 +173,9 @@
         </div>
       </section>
       <ol class="how">
-        <li><b>Add your notes</b><span>Paste or upload them. Messy is fine, and AI can tidy them up if you want.</span></li>
+        <li><b>Add your notes</b><span>Paste them or upload a PDF or Word file. Messy is fine; AI can tidy them and turn them into a full study guide.</span></li>
         <li><b>We build the cards</b><span>Terms, questions, dates and formulas become flashcards and quiz questions.</span></li>
-        <li><b>Study six ways</b><span>Flashcards, learn mode, matching, true/false, practice tests and timelines. Missed cards come back sooner.</span></li>
+        <li><b>Study eight ways</b><span>Flashcards, learn mode, matching, true/false, timed tests, timelines, written answers graded by AI, and a study sheet. Missed cards come back sooner.</span></li>
       </ol>
       <div class="section-title"><h2>No notes? Start with a built-in topic</h2><span class="muted small">${Library.categories.length} topics with study guides and endless practice</span></div>
       <div class="subject-strip">${groups.map((g) => `<div class="subject-tile" data-subject="${subjSlug(g.subject)}"><span class="cat-icon">${g.icon}</span><span><b>${esc(g.subject)}</b><small>${plural(g.levels.reduce((n, l) => n + l.cats.length, 0), 'topic')}</small></span></div>`).join('')}</div>`;
@@ -283,7 +293,7 @@ Include every key vocabulary word, every formula, and at least 10 practice quest
     const aiOn = Store.current().settings.aiFormat === 'on'; // the student's choice; off unless they pick AI
     if (id && !n) return notFound();
     return `
-      <div class="page-head"><div><h1>${n ? 'Edit notes' : 'Add notes'}</h1><p class="muted">Paste notes from anywhere, or upload a .txt / .md file. Works for any subject. Math in LaTeX ($x^2$) is supported.</p></div></div>
+      <div class="page-head"><div><h1>${n ? 'Edit notes' : 'Add notes'}</h1><p class="muted">Paste notes from anywhere, or upload a PDF, Word (.docx) or text file. Works for any subject. Math in LaTeX ($x^2$) is supported.</p></div></div>
       <div class="grid editor">
         <form class="card stack" data-form="save-note" data-id="${n ? n.id : ''}">
           <div class="grid two tight">
@@ -299,7 +309,7 @@ Include every key vocabulary word, every formula, and at least 10 practice quest
             <textarea name="content" rows="18" required data-input="preview-notes" placeholder="Paste your notes here...&#10;&#10;## The Cell&#10;- Mitochondria: releases energy from food for the cell&#10;- Osmosis: the diffusion of water across a membrane&#10;&#10;Q: What does the nucleus do?&#10;A: Controls the cell and holds its DNA">${n ? esc(n.content) : ''}</textarea>
           </label>
           <div class="row">
-            <label class="btn">📎 Upload .txt / .md<input type="file" accept=".txt,.md,.markdown,text/plain,text/markdown" data-change="load-file" hidden></label>
+            <label class="btn">📎 Upload a file<input type="file" accept=".pdf,.docx,.doc,.txt,.md,.markdown,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown" data-change="load-file" hidden></label>
             <button class="btn" type="button" data-action="ai-format" data-ai-only ${aiOn ? '' : 'hidden'}>✨ Format with AI</button>
             <span class="muted small" id="parseCount"></span>
           </div>
@@ -387,8 +397,8 @@ Include every key vocabulary word, every formula, and at least 10 practice quest
         <div class="row tight"><button class="btn primary" data-action="quiz-note" data-id="${n.id}" ${cards.length ? '' : 'disabled'}>Quiz me on this</button><a class="btn" href="#note-edit--${n.id}">Edit</a><button class="btn danger" data-action="delete-note" data-id="${n.id}">Delete</button></div>
       </div>
       ${cards.length ? window.MSG.Study.modesPanel('note_' + n.id) : ''}
-      <div class="tabs"><button class="tab ${tab === 'cards' ? 'active' : ''}" data-action="note-tab" data-tab="cards">Study cards (${cards.length})</button><button class="tab ${tab === 'notes' ? 'active' : ''}" data-action="note-tab" data-tab="notes">My notes</button></div>
-      ${tab === 'notes' ? `<div class="card notes-body">${md(n.content)}</div>` : `
+      <div class="tabs"><button class="tab ${tab === 'cards' ? 'active' : ''}" data-action="note-tab" data-tab="cards">Study cards (${cards.length})</button><button class="tab ${tab === 'guide' ? 'active' : ''}" data-action="note-tab" data-tab="guide">${n.guide ? 'Study guide' : '✨ Study guide'}</button><button class="tab ${tab === 'notes' ? 'active' : ''}" data-action="note-tab" data-tab="notes">My notes</button></div>
+      ${tab === 'guide' ? window.MSG.Study.noteGuideTab(n) : tab === 'notes' ? `<div class="card notes-body">${md(n.content)}</div>` : `
         <div class="card">
           ${cards.length ? '' : '<p class="muted">We couldn\'t find study cards in these notes. Edit them using the tips (like "Term: definition"), or add cards yourself below.</p>'}
           <div class="card-list">${cards.map(cardRow).join('')}</div>
@@ -867,6 +877,12 @@ service cloud.firestore {
       if (AI.original != null) { form.content.value = AI.original; AI.original = null; previewNotes(form.content); }
       aiPanel(''); toast('Your original notes are back.');
     },
+    theme: () => {
+      const t = THEMES[(THEMES.indexOf(themeNow()) + 1) % THEMES.length];
+      try { localStorage.setItem('usg:theme', t); } catch (e) { /* the switch still works for this visit */ }
+      if (t !== 'auto') applyTheme(t, true); else applyTheme('auto', true);
+      toast(t === 'dark' ? 'Dark mode 🌙' : t === 'light' ? 'Light mode ☀️' : 'Matching your device 🌓');
+    },
     'cat-view': (el) => { sessionStorageSet('catView', el.dataset.view); if (location.hash !== '#categories') go('#categories'); else route(); },
     'pick-band': (el) => { sessionStorageSet('band', el.dataset.band); route(); },
     'pick-program': (el) => { sessionStorageSet('program', el.dataset.program); route(); },
@@ -1028,14 +1044,10 @@ service cloud.firestore {
     }
     if (!t.dataset.change || !t.files || !t.files[0]) return;
     const file = t.files[0];
+    if (t.dataset.change === 'load-file') { loadNotesFile(t, file); t.value = ''; return; }
     const reader = new FileReader();
     reader.onload = () => {
-      if (t.dataset.change === 'load-file') {
-        const form = t.closest('form');
-        form.content.value = (form.content.value ? form.content.value + '\n\n' : '') + reader.result;
-        if (!form.title.value) form.title.value = file.name.replace(/\.[^.]+$/, '');
-        previewNotes(form.content);
-      } else if (t.dataset.change === 'import-backup') {
+      if (t.dataset.change === 'import-backup') {
         try { const p = Store.importProfile(reader.result); toast('Imported profile ' + p.name); go('#dashboard'); }
         catch (err) { toast(err.message || 'Could not import that file.'); }
       }
@@ -1043,6 +1055,27 @@ service cloud.firestore {
     reader.readAsText(file);
     t.value = '';
   });
+  /* A PDF, Word or text file becomes notes in the editor (js/file-text.js reads PDF and Word in the browser). */
+  async function loadNotesFile(input, file) {
+    const form = input.closest('form');
+    const FT = window.MSG.FileText;
+    const k = FT.kind(file.name);
+    if (!['pdf', 'docx', 'text'].includes(k)) { toast(k); return; }
+    if (file.size > 25 * 1024 * 1024) { toast('That file is over 25 MB. Upload a smaller file, or one chapter at a time.'); return; }
+    const label = input.closest('label');
+    const old = label.firstChild.textContent;
+    label.firstChild.textContent = '⏳ Reading ' + file.name + '… ';
+    try {
+      const text = k === 'text' ? await file.text() : k === 'pdf' ? await FT.pdf(await file.arrayBuffer()) : await FT.docx(await file.arrayBuffer());
+      form.content.value = (form.content.value ? form.content.value + '\n\n' : '') + text;
+      if (!form.title.value) form.title.value = file.name.replace(/\.[^.]+$/, '');
+      previewNotes(form.content);
+      toast(k === 'text' ? 'File added.' : 'Read ' + file.name + '. Check the text, then save.');
+    } catch (e) {
+      toast((e && e.message && !/^[A-Z][a-z]+Error/.test(e.name || '')) ? e.message : 'Could not read that file. Try another copy, or paste the text.');
+    } finally { label.firstChild.textContent = old; }
+  }
+
   document.addEventListener('keydown', (e) => {
     if (!session || !location.hash.startsWith('#quiz')) return;
     if (e.target.tagName === 'TEXTAREA') return;
