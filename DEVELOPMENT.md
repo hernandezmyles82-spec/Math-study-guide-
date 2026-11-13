@@ -30,7 +30,7 @@ global `window.MSG` namespace (or `globalThis` under Node, so the tests can `req
 | `js/generators.js` | `MSG.Generators`: per-category random problem generators keyed by the same category ids (`generate`, `js/generators.js:458`) |
 | `js/quiz.js` | `MSG.Quiz`: builds questions from cards, categories and exams; checks answers (`js/quiz.js:177`) |
 | `js/guides.js` | `MSG.Guides`: parses the study-guide text format (`Guides.add(raw)`, `get(id)`) |
-| `js/guides-content.js` | The study guide for each built-in topic, keyed by topic id |
+| `js/guides-*.js` | The study guide for every built-in topic, keyed by topic id, one file per subject (`guides-math.js`, `guides-science.js`, `guides-history.js`, `guides-english.js`, `guides-languages.js`, `guides-cs-arts.js`; `guides-content.js` holds Derivatives and U.S. History). Loaded after `js/guides.js` and before `js/modes.js` |
 | `js/modes.js` | `MSG.Modes`: logic for the study modes (decks, true/false, matching, learn, practice test, put-in-order, badges, mastery). No HTML, so the tests can run it |
 | `js/study.js` | `MSG.Study`: screens and actions for the study modes, study guides, mistake notebook and progress page. `js/app.js` calls `Study.init(helpers)` and merges the returned `views`, `actions` and `forms` into its router |
 | `js/firebase-config.js` | Firebase web settings, or `null` for no website accounts. Must load before `js/sync.js` |
@@ -74,11 +74,13 @@ Every mode works on a **source**, which is also in the page address: `cat_<topic
 - **Badges and mastery** are computed from saved data each time (`Modes.badges()`, `Modes.topicMastery(id)`): nothing extra is stored except `modesUsed`.
 - **Read aloud** uses the browser's speech (`speechSynthesis`), with LaTeX turned into words by `Study.speakable`. **Print** uses `@media print` in `css/styles.css` (`.no-print` hides buttons) and opens the self-check answers before printing.
 
-Study guides are written in `js/guides-content.js` in the format documented at the top of `js/guides.js` (`@@ topic-id`, then `## Overview`, `## Key ideas`, `## Worked examples` with `Example:`/`Solution:`/`Answer:`, `## Common mistakes`, optional `## Timeline` and `## In order: …`, and `## Check yourself` with `Q:`/`A:`). The tests require every guide to have an overview, key ideas, common mistakes, at least 2 worked examples and 4 self-check questions, and timeline years that parse.
+Study guides are written in the `js/guides-*.js` files in the format documented at the top of `js/guides.js` (`@@ topic-id`, then `## Overview`, `## Key ideas`, `## Worked examples` with `Example:`/`Solution:`/`Answer:`, `## Common mistakes`, optional `## Timeline` and `## In order: …`, and `## Check yourself` with `Q:`/`A:`). The tests require every topic to have a guide, and every guide to have an overview, key ideas, common mistakes, at least 2 worked examples and 4 self-check questions, and timeline years that parse.
+
+> ⚠️ **Watch out:** A new topic needs a guide too (the tests check it), and a new `js/guides-*.js` file must be added to `index.html` and to the `require` list in `tests/run-tests.js`.
 
 > ⚠️ **Watch out:** A guide is the student's main explanation of a topic, so every fact, date and worked answer in it must be right. When adding one, check it against the topic's reference sheet in `js/library*.js` (they must agree) and re-solve every worked example.
 
-> ⚠️ **Watch out:** Timeline years must be different from each other (the order game needs one right answer). Write ranges as `1861–1865` and BCE dates as `3000 BCE`; `Guides.yearOf` sorts them.
+> ⚠️ **Watch out:** Timeline years must be different from each other (the order game needs one right answer). Write ranges as `1861–1865`, BCE dates as `3000 BCE`, and deep time as `4.6 billion years ago`; `Guides.yearOf` sorts them.
 
 ### Subjects
 
