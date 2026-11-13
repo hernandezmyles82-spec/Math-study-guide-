@@ -101,6 +101,8 @@
       if (text) { n.guide = String(text).slice(0, 60000); n.guideAt = Date.now(); } else { delete n.guide; delete n.guideAt; }
       save();
     },
+    /* The shared-library guide id this note was published as (js/shared-library.js), or null. */
+    setNoteShared(id, gid) { const n = S.note(id); if (!n) return; if (gid) n.sharedId = String(gid); else delete n.sharedId; save(); },
     deleteNote(id) {
       const p = S.current();
       p.notes = p.notes.filter((n) => n.id !== id);
@@ -265,6 +267,7 @@
         const id = safeId(x.id); noteIds.set(x.id, id);
         const note = { id, title: str(x.title, 200) || 'Untitled notes', course: str(x.course, 100), categoryId: safeId(x.categoryId || 'none').replace(/^none$/, ''), content: str(x.content), createdAt: n(x.createdAt, Date.now()), updatedAt: n(x.updatedAt, Date.now()) };
         if (x.guide) { note.guide = str(x.guide, 60000); note.guideAt = n(x.guideAt, Date.now()); }
+        if (typeof x.sharedId === 'string' && /^[a-z0-9]{6,40}$/.test(x.sharedId)) note.sharedId = x.sharedId;
         return note;
       });
       const seen = new Set();

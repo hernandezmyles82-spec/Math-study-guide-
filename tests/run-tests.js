@@ -1,6 +1,6 @@
 /* Node test runner: node tests/run-tests.js */
 const path = require('path');
-['util', 'store', 'parser', 'library', 'library-subjects', 'library-more', 'generators', 'generators-subjects', 'generators-more', 'courses', 'quiz', 'guides', 'guides-content', 'guides-math', 'guides-science', 'guides-history', 'guides-english', 'guides-languages', 'guides-cs-arts', 'modes', 'ai-format'].forEach((f) => require(path.join(__dirname, '..', 'js', f + '.js')));
+['util', 'store', 'parser', 'library', 'library-subjects', 'library-more', 'generators', 'generators-subjects', 'generators-more', 'courses', 'quiz', 'guides', 'guides-content', 'guides-math', 'guides-science', 'guides-history', 'guides-english', 'guides-languages', 'guides-cs-arts', 'modes', 'ai-format', 'shared-library'].forEach((f) => require(path.join(__dirname, '..', 'js', f + '.js')));
 const { U, Library, Generators, parseNotes, Store, Quiz } = globalThis.MSG;
 let fails = 0, passes = 0;
 const ok = (cond, msg) => { if (cond) passes++; else { fails++; console.log('FAIL:', msg); } };
@@ -210,6 +210,17 @@ ok(Modes.writtenQuestions('note_' + gn.id, 8).some((q) => q.question === 'What h
 const gb = Store.importProfile(Store.exportProfile());
 ok(gb.notes.find((x) => x.title === 'Cells').guide.startsWith('## Overview'), 'note guide survives backup');
 Store.setNoteGuide(gn.id, null); ok(!Store.note(gn.id).guide, 'note guide can be removed');
+
+// shared library: everything read from other people is checked
+const SL = globalThis.MSG.SharedLibrary;
+ok(SL.cleanMeta({ id: '../x' }, 'u') === null && SL.cleanMeta({ id: 'ABCDEF12' }, 'u') === null, 'shared guide ids are checked');
+const cm = SL.cleanMeta({ id: 'abc123def', title: 'x'.repeat(500), level: 9, cards: 'lots', by: { evil: 1 } }, 'u1');
+ok(cm.title.length === 120 && cm.level === null && cm.cards === 0 && cm.uid === 'u1' && typeof cm.by === 'string', 'shared guide summaries are capped and typed');
+const cb = SL.cleanBody({ cards: [{ front: 'f', back: 'b', type: 'evil' }, { front: null }, ...Array(500).fill({ front: 'a', back: 'b' })], guide: 7, notes: null });
+ok(cb.cards.length === 400 && cb.cards[0].type === 'qa' && cb.guide === '7' && cb.notes === '', 'shared guide bodies are capped and typed');
+ok(/^https:\/\/claude\.ai\/artifact\//.test(SL.SITE_URL), 'share links point at the claude.ai page');
+const sn = Store.addNote({ title: 'S', content: 'x' }, cards); Store.setNoteShared(sn.id, 'abc123def');
+ok(Store.importProfile(Store.exportProfile()).notes.find((x) => x.title === 'S').sharedId === 'abc123def', 'shared id survives backup');
 
 console.log(`${passes} passed, ${fails} failed (${generated} generated problems checked)`);
 process.exit(fails ? 1 : 0);
