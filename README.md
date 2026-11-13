@@ -25,6 +25,16 @@ Both versions are built from the same code (`python3 tools/build-artifact.py` ma
   - Markdown tables, `front :: back` flashcards, and `{{cloze}}` blanks
   - LaTeX math (`$x^2$`, `$$\frac{a}{b}$$`, `\( \)`), rendered with KaTeX
 - **Format with AI (your choice)**: when you add notes, pick **📝 Keep my notes as I wrote them** or **✨ Let AI format my notes**. AI is never used unless you pick it, and the site remembers your choice (you can change it on the Profile page). With AI picked, paste your notes and click **✨ Format with AI** to have AI tidy them into the format that makes the best quiz questions. It keeps your facts and wording and adds nothing new, and you see both versions side by side, with the number of study cards each makes, before choosing. You can always undo. On the claude.ai version, Claude does it right in the page (using your own Claude account, after you allow it); on the public website, the button gives you a ready-made prompt with your notes to paste into any AI chat.
+- **Ways to study** every topic, course and set of notes:
+  - 🃏 **Flashcards**: flip cards, shuffle, ⭐ star the hard ones, sort into "know it" / "still learning"
+  - 🧠 **Learn**: keeps asking until you get each card right twice in a row (choose it, then type it)
+  - 🧩 **Matching**: a timed game matching terms to definitions
+  - ✅ **True / False** quick rounds
+  - 📝 **Practice test**: timed, no answers shown until the end, then a review of every question
+  - ⏳ **Put in order**: timelines and step-by-step processes
+- **Study guides**: built-in topics have a full guide (overview, key ideas, worked examples, common mistakes, a self-check, and timelines), with 🔊 read aloud and 🖨️ print.
+- **Mistake notebook**: every missed question is saved to redo; answer it right and it leaves the notebook.
+- **Progress & badges**: study streak, a 5-week activity calendar, 13 badges, and mastery % for each topic.
 - **Quizzes**: multiple choice, type the answer (understands `3/4`, `0.75`, `25pi`, `sqrt(2)`) and flashcards. Includes an "I was actually right" override.
 - **Spaced repetition / daily review**: cards you miss come back in 10 minutes; cards you know come back after 1, 3, 7+ days.
 - **Test Prep**: add a quiz or test date and choose which notes and topics are on it. Then take a **Quick quiz** (your weakest cards), a **Full practice test**, or use **🔥 Cram mode**, which repeats every miss until you get it right. Includes a countdown and a daily study plan.
@@ -62,6 +72,10 @@ node tests/run-tests.js
 ```
 These check the answer checker, the notes parser, storage and spaced repetition, and quiz building, and run every practice-problem generator at every difficulty.
 
+## Security
+
+The site has no server or database of its own to break into: the public website is plain files, and notes live in each student's browser or their own claude.ai account. A Content-Security-Policy in `index.html` lets the browser run only the site's own scripts, so code typed into notes, names or a backup file can never run. See DEVELOPMENT.md → Security.
+
 ## Project layout
 
 ```
@@ -83,6 +97,10 @@ js/generators.js    randomized math practice problems
 js/generators-subjects.js  practice questions for the other subjects
 js/generators-more.js  practice questions for the topics in library-more.js
 js/quiz.js          builds quizzes from cards / categories / exams
+js/guides.js        study guide format (parser)
+js/guides-content.js  the study guide for each built-in topic
+js/modes.js         study-mode logic: flashcards, learn, matching, true/false, tests, put in order, badges
+js/study.js         study-mode screens, study guides, mistake notebook, progress page
 js/app.js           UI views and routing
 vendor/katex/       KaTeX math rendering (MIT license)
 vendor/firebase/    Firebase SDK 10.12.2 (Apache 2.0)

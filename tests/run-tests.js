@@ -1,6 +1,6 @@
 /* Node test runner: node tests/run-tests.js */
 const path = require('path');
-['util', 'store', 'parser', 'library', 'library-subjects', 'library-more', 'generators', 'generators-subjects', 'generators-more', 'courses', 'quiz', 'ai-format'].forEach((f) => require(path.join(__dirname, '..', 'js', f + '.js')));
+['util', 'store', 'parser', 'library', 'library-subjects', 'library-more', 'generators', 'generators-subjects', 'generators-more', 'courses', 'quiz', 'guides', 'guides-content', 'modes', 'ai-format'].forEach((f) => require(path.join(__dirname, '..', 'js', f + '.js')));
 const { U, Library, Generators, parseNotes, Store, Quiz } = globalThis.MSG;
 let fails = 0, passes = 0;
 const ok = (cond, msg) => { if (cond) passes++; else { fails++; console.log('FAIL:', msg); } };
@@ -139,6 +139,58 @@ ok(clean.sessions[0].right === 0, 'hostile number replaced');
 ok(clean.exams.length === 0, 'hostile date dropped');
 let threw = false; try { Store.importProfile('not json'); } catch (e) { threw = /not a Math Study Guide backup/.test(e.message); }
 ok(threw, 'bad file gives a friendly error');
+
+// study guides
+const { Guides, Modes } = globalThis.MSG;
+Guides.ids().forEach((id) => {
+  const g = Guides.get(id);
+  ok(Library.get(id), 'guide ' + id + ' is for an existing topic');
+  ok(g.sections.some((x) => /overview/i.test(x.title)) && g.sections.some((x) => /key ideas/i.test(x.title)) && g.sections.some((x) => /common mistakes/i.test(x.title)), 'guide ' + id + ' has overview, key ideas and common mistakes');
+  ok(g.examples.length >= 2 && g.examples.every((e) => e.problem && e.answer), 'guide ' + id + ' has worked examples with answers');
+  ok(g.check.length >= 4 && g.check.every((c) => c.q && c.a), 'guide ' + id + ' has a self-check with answers');
+  ok(g.timeline.every((t) => Number.isFinite(t.year)), 'guide ' + id + ' timeline years parse');
+  ok(new Set(g.timeline.map((t) => t.year)).size === g.timeline.length || g.timeline.length === 0, 'guide ' + id + ' timeline has no duplicate years');
+});
+ok(Guides.yearOf('476 CE') === 476 && Guides.yearOf('3000 BCE') === -3000 && Guides.yearOf('1914–1918') === 1914 && Guides.yearOf('c. 1450') === 1450 && Guides.yearOf('Step 2') === null, 'year parsing');
+const tg = Guides.parseOne('t', '## Overview\nHi\n## Timeline\n- 1776: A\n- 1492: B\n## In order: Steps\n- a\n- b\n- c\n## Check yourself\nQ: q1\nA: a1\n');
+ok(tg.timeline.length === 2 && tg.orders[0].items.length === 3 && tg.check[0].a === 'a1' && tg.sections[0].text === 'Hi', 'guide format parses');
+
+// study modes
+Store._reset(); Store.createProfile('Modes');
+ok(Modes.parseSource('cat_derivatives').id === 'derivatives' && Modes.parseSource('note_x"><') === null && Modes.parseSource('evil_x') === null, 'sources validated');
+Library.categories.forEach((c) => {
+  const d = Modes.deck('cat_' + c.id);
+  ok(d && d.items.length === c.concepts.length, c.id + ' deck');
+  const tf = Modes.trueFalseSet(d.items, 8);
+  ok(tf.length > 0 && tf.every((q) => q.kind === 'mc' && q.choices.length === 2 && (q.correct === 0 || q.correct === 1)), c.id + ' true/false');
+  tf.filter((q) => q.correct === 1).forEach((q) => ok(/^False\. /.test(q.explain), c.id + ' false statements explain the truth'));
+  const rounds = Modes.matchRounds(d.items);
+  rounds.forEach((r) => { ok(r.length >= 3, c.id + ' match round size'); ok(new Set(r.map((x) => U.normalize(x.back))).size === r.length, c.id + ' match answers distinct'); });
+  const st = Modes.learnStart(d.items);
+  let guard = 0;
+  while (st && Modes.learnQuestion(st) && guard++ < 500) { const q = st.q; ok(q.kind === 'mc' ? q.choices[q.correct] != null && new Set(q.choices).size === q.choices.length : !!q.answer, c.id + ' learn question'); Modes.learnAnswer(st, guard % 5 !== 0); }
+  ok(st && st.learned === st.all.length, c.id + ' learn mode finishes');
+  const test = Modes.practiceTest('cat_' + c.id, 20);
+  ok(test.length === 20 && test.every((q) => q && q.prompt), c.id + ' practice test builds 20 questions');
+});
+ok(Modes.orderSets('cat_us-history').some((s) => s.kind === 'time' && s.items.length >= 10), 'US history timeline for the order game');
+const orr = Modes.orderRound(Modes.orderSets('cat_us-history')[0], 6);
+ok(orr.length === 6 && new Set(orr.map((x) => x.key)).size === 6, 'order round has distinct dates');
+ok(Modes.orderScore(orr.slice().sort((a, b) => a.key - b.key)) === 6, 'order score');
+// notes deck, stars, mistake notebook, badges
+const mnote = Store.addNote({ title: 'Mine', content: 'x' }, cards);
+const nd = Modes.deck('note_' + mnote.id);
+ok(nd.items.length === cards.length && Modes.practiceTest('note_' + mnote.id, 10).length === 10, 'note deck and test');
+Store.toggleStar(nd.items[0].id); Store.toggleStar('lib:derivatives:1');
+ok(Modes.deck('starred').items.length === 2, 'starred deck mixes notes and topics');
+const mq = { kind: 'mc', prompt: 'Q?', choices: ['a', 'b'], correct: 1, conceptId: 'lib:derivatives:2' };
+Store.addMistake(mq); Store.addMistake(mq);
+ok(Store.mistakes().length === 1 && Store.mistakes()[0].count === 2, 'mistake recorded once, counted twice');
+const mb = JSON.parse(Store.exportProfile()); mb.profile.mistakes.push({ kind: 'mc', prompt: 'x', choices: ['<img src=x onerror=1>'], correct: 9, cardId: '"><script>' });
+const mi = Store.importProfile(JSON.stringify(mb));
+ok(mi.mistakes.length === 1 && mi.starred['lib:derivatives:1'] === 1, 'notebook and stars survive backup; one-choice mistake dropped');
+ok(Store.clearMistake(mq) === true && Store.mistakes().length === 0, 'answering right clears a mistake');
+ok(Modes.badges().length >= 10 && Modes.badges().every((b) => b.name && b.how), 'badges');
 
 console.log(`${passes} passed, ${fails} failed (${generated} generated problems checked)`);
 process.exit(fails ? 1 : 0);

@@ -2,6 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com; frame-src https://*.firebaseapp.com; object-src 'none'; base-uri 'none'; form-action 'self'">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Universal Study Guide</title>
   <meta name="description" content="Turn your notes for any subject into quizzes, review them over time, cram before a test, and practice built-in topics in math, science, history, English, languages, computer science, and arts &amp; music, from elementary school to AP and IB.">
@@ -37,12 +39,16 @@
   <script src="js/generators-more.js"></script>
   <script src="js/courses.js"></script>
   <script src="js/quiz.js"></script>
+  <script src="js/guides.js"></script>
+  <script src="js/guides-content.js"></script>
+  <script src="js/modes.js"></script>
   <script src="js/firebase-config.js"></script>
   <script src="js/ai-format.js"></script>
   <script src="js/sync.js"></script>
   <script src="js/accounts.js"></script>
+  <script src="js/study.js"></script>
   <script src="js/app.js"></script>
   <script defer src="vendor/katex/katex.min.js"></script>
-  <script defer src="vendor/katex/auto-render.min.js" onload="window.MSG && window.MSG.rerenderMath && window.MSG.rerenderMath()"></script>
+  <script defer src="vendor/katex/auto-render.min.js"></script>
 </body>
 </html>

@@ -54,7 +54,7 @@
     createProfile(name) {
       const p = {
         id: U.uid(), name: String(name).trim() || 'Student', createdAt: Date.now(),
-        notes: [], cards: [], exams: [], activity: {}, catStats: {}, sessions: [],
+        notes: [], cards: [], exams: [], activity: {}, catStats: {}, sessions: [], starred: {}, mistakes: [], modesUsed: {},
         settings: { quizLength: 10, dailyLimit: 25, aiFormat: 'off' }
       };
       db.profiles[p.id] = p; db.currentId = p.id; save();
@@ -205,6 +205,32 @@
       return { cards: p.cards.length, due: S.dueCards().length, right, total, accuracy: total ? Math.round(100 * right / total) : null, streak: S.streak(), mastered };
     },
 
+    /* ---------- starred cards, mistake notebook, study modes used ---------- */
+    // Profiles made before these existed lack the fields, so they are created on first use.
+    starred() { const p = S.current(); return p.starred || (p.starred = {}); },
+    isStarred(id) { return !!S.starred()[id]; },
+    toggleStar(id) { const st = S.starred(); if (st[id]) delete st[id]; else st[id] = 1; save(); return !!st[id]; },
+    mistakes() { const p = S.current(); return p.mistakes || (p.mistakes = []); },
+    mistakeKey(q) { return q.cardId || q.conceptId || ('q:' + String(q.prompt).slice(0, 300)); },
+    /* A missed question goes into the notebook with everything needed to ask it again. */
+    addMistake(q) {
+      const list = S.mistakes();
+      const key = S.mistakeKey(q);
+      const old = list.find((m) => m.key === key);
+      if (old) { old.count += 1; old.at = Date.now(); save(); return; }
+      const keep = ['kind', 'prompt', 'choices', 'correct', 'answer', 'answerDisplay', 'check', 'tol', 'explain', 'topic', 'categoryId', 'cardId', 'conceptId'];
+      const m = { key, count: 1, at: Date.now() };
+      keep.forEach((k) => { if (q[k] != null) m[k] = q[k]; });
+      list.unshift(m);
+      if (list.length > 150) list.length = 150;
+      save();
+    },
+    /* Answering it right later takes it out of the notebook. */
+    clearMistake(q) { const p = S.current(); const key = S.mistakeKey(q); const before = S.mistakes().length; p.mistakes = p.mistakes.filter((m) => m.key !== key); if (p.mistakes.length === before) return false; save(); return true; },
+    clearAllMistakes() { S.current().mistakes = []; save(); },
+    modesUsed() { const p = S.current(); return p.modesUsed || (p.modesUsed = {}); },
+    markMode(mode) { const m = S.modesUsed(); m[mode] = (m[mode] || 0) + 1; save(); },
+
     /* ---------- exams ---------- */
     exam(id) { return S.current().exams.find((e) => e.id === id); },
     addExam({ title, date, noteIds, categoryIds }) {
@@ -257,10 +283,24 @@
       const catStats = {};
       Object.entries(src.catStats || {}).forEach(([k, a]) => { if (/^[\w-]+$/.test(k) && a) catStats[k] = { right: n(a.right, 0), wrong: n(a.wrong, 0), last: n(a.last, 0) }; });
       const sessions = (Array.isArray(src.sessions) ? src.sessions : []).slice(0, 50).map((x) => ({ title: str(x && x.title, 200), right: n(x && x.right, 0), total: n(x && x.total, 0), at: n(x && x.at, 0) }));
+      const starred = {};
+      Object.keys(src.starred || {}).forEach((k) => { if (/^[\w:.-]{1,80}$/.test(k)) starred[k] = 1; });
+      const modesUsed = {};
+      Object.entries(src.modesUsed || {}).forEach(([k, v]) => { if (/^[a-z]{1,20}$/.test(k)) modesUsed[k] = n(v, 0); });
+      const strs = (a, max) => (Array.isArray(a) ? a.slice(0, 8).map((x) => str(x, max)) : undefined);
+      const mistakes = (Array.isArray(src.mistakes) ? src.mistakes : []).filter((m) => m && m.prompt != null && ['mc', 'input', 'flash'].includes(m.kind)).slice(0, 150).map((m) => {
+        const o = { key: str(m.key, 320), kind: m.kind, prompt: str(m.prompt, 5000), count: n(m.count, 1), at: n(m.at, Date.now()) };
+        if (m.kind === 'mc') { o.choices = strs(m.choices, 2000) || []; o.correct = Math.max(0, Math.min(o.choices.length - 1, n(m.correct, 0))); }
+        ['answer', 'answerDisplay', 'explain', 'topic'].forEach((k) => { if (m[k] != null) o[k] = str(m[k], 5000); });
+        if (m.check === 'numeric') o.check = 'numeric';
+        if (m.tol != null) o.tol = n(m.tol, 0);
+        ['categoryId', 'cardId', 'conceptId'].forEach((k) => { if (m[k] != null && /^[\w:.-]{1,80}$/.test(String(m[k]))) o[k] = String(m[k]); });
+        return o;
+      }).filter((m) => m.kind !== 'mc' || m.choices.length >= 2);
       const set = src.settings || {};
       const p = {
         id: U.uid(), name: str(src.name, 40).trim() || 'Student', createdAt: n(src.createdAt, Date.now()),
-        notes, cards, exams, activity, catStats, sessions,
+        notes, cards, exams, activity, catStats, sessions, starred, mistakes, modesUsed,
         settings: { quizLength: Math.min(50, Math.max(1, n(set.quizLength, 10))), dailyLimit: Math.min(500, Math.max(1, n(set.dailyLimit, 25))), aiFormat: set.aiFormat === 'on' ? 'on' : 'off' }
       };
       db.profiles[p.id] = p; db.currentId = p.id; save();
