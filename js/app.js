@@ -164,6 +164,8 @@
             <input id="startName" name="name" required maxlength="40" placeholder="Your first name or nickname" autocomplete="off" aria-label="Your name">
             <button class="btn primary" type="submit">Start studying</button>
           </form>
+          <ul class="promises" aria-label="Our promises"><li>Free</li><li>No ads</li><li>Never sells your data</li><li>Not-for-profit</li></ul>
+          ${window.MSG.Community.html('line')}
           <p class="muted small">No sign-up form. Have a backup file? <label class="link-like">Import it<input type="file" accept=".json,application/json" data-change="import-backup" hidden></label></p>
           ${profiles.length ? `<div class="stack" style="margin-top:1.2rem;max-width:30rem"><p class="eyebrow" style="margin:0">Or continue as</p>${profiles.map((p) => `<button class="btn profile-btn ${Store.current() && Store.current().id === p.id ? 'active' : ''}" data-action="pick-profile" data-id="${p.id}"><span class="avatar">${esc(p.name[0] || '?').toUpperCase()}</span><span>${esc(p.name)}<small>${plural(p.notes.length, 'note')} · ${plural(p.cards.length, 'card')}</small></span></button>`).join('')}</div>` : ''}
         </div>
@@ -202,6 +204,7 @@
         <div><h1>${hello}, ${esc(p.name)} 👋</h1><p class="muted">${st.streak ? `🔥 ${plural(st.streak, 'day')} study streak, keep it going!` : 'Study a little every day to build a streak.'}</p></div>
         <a class="btn primary" href="#notes-new">+ Add notes</a>
       </div>
+      ${window.MSG.Community.html('line')}
       <div class="stats">
         <div class="stat"><span>${st.due}</span>cards due</div>
         <div class="stat"><span>${st.cards}</span>study cards</div>
@@ -814,10 +817,10 @@ service cloud.firestore {
     if (window.MSG.Sync && window.MSG.Sync.loading) name = 'auth'; // claude.ai: shows "Loading…" until we know whose notes to load
     else if (A && A.enabled && (!A.ready || !A.user || A.error)) name = 'auth';
     else if (A && A.enabled && !A.loaded) name = 'auth'; // shows "Loading…" while the account's notes arrive
-    else if (!Store.current() && name !== 'welcome' && name !== 'setup') name = 'welcome';
+    else if (!Store.current() && !['welcome', 'setup', 'help', 'terms'].includes(name)) name = 'welcome';
     const view = views[name] || notFound;
     $app.innerHTML = view(arg);
-    document.querySelectorAll('[data-nav]').forEach((a) => a.classList.toggle('active', a.dataset.nav === name || (name.startsWith('note') && a.dataset.nav === 'notes') || ((name === 'category' || name === 'course') && a.dataset.nav === 'categories') || (['share', 'shared'].includes(name) && a.dataset.nav === 'library') || (['mistakes', 'progress'].includes(name) && a.dataset.nav === 'dashboard')));
+    document.querySelectorAll('[data-nav]').forEach((a) => a.classList.toggle('active', a.dataset.nav === name || (name.startsWith('note') && a.dataset.nav === 'notes') || ((name === 'category' || name === 'course') && a.dataset.nav === 'categories') || (['share', 'shared'].includes(name) && a.dataset.nav === 'library') || (name === 'terms' && a.dataset.nav === 'help') || (['mistakes', 'progress'].includes(name) && a.dataset.nav === 'dashboard')));
     const p = Store.current();
     document.getElementById('nav').style.visibility = p ? 'visible' : 'hidden';
     const chip = document.getElementById('profileChip');
@@ -825,6 +828,7 @@ service cloud.firestore {
     chip.style.display = p ? '' : 'none';
     document.title = (name === 'welcome' ? '' : (name.charAt(0).toUpperCase() + name.slice(1)).replace(/-.*/, '') + ' · ') + 'Universal Study Guide';
     renderMath($app);
+    if (window.MSG.Community) window.MSG.Community.paint();
     const ta = $app.querySelector('textarea[data-input="preview-notes"]');
     if (ta && ta.value) previewNotes(ta);
     const af = $app.querySelector('[autofocus]');
@@ -1115,6 +1119,11 @@ service cloud.firestore {
   const helpers = { esc, fmt, md, renderMath, toast, ask, go, route, startQuiz, plural, pct, notFound };
   const study = window.MSG.Study.init(helpers);
   Object.assign(views, study.views); Object.assign(actions, study.actions); Object.assign(forms, study.forms);
+  // Help, About and Terms (js/help.js).
+  const help = window.MSG.Help.init(helpers);
+  Object.assign(views, help.views); Object.assign(actions, help.actions);
+  // Live count of everyone who has joined (js/community.js, claude.ai version only).
+  window.MSG.Community.start();
   // Shared library (js/shared-library.js).
   const shared = window.MSG.SharedLibrary.init(helpers);
   Object.assign(views, shared.views); Object.assign(actions, shared.actions); Object.assign(forms, shared.forms);

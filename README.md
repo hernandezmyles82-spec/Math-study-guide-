@@ -1,6 +1,6 @@
 # Universal Study Guide
 
-A website that turns **notes for any subject** into quizzes: math, science, history, English, languages, anything. Paste notes from class, a study guide, or from ChatGPT, Claude or any other AI. The site saves them under your profile, builds study cards, quizzes you over time with spaced repetition, and helps you cram before a quiz or test. No notes? Practice **91 built-in topics across 7 subjects, from elementary school to AP, IB and college**, or study any of **60 AP and IB courses** unit by unit.
+A free, not-for-profit student project (no ads, data never sold): a website that turns **notes for any subject** into quizzes: math, science, history, English, languages, anything. Paste notes from class, a study guide, or from ChatGPT, Claude or any other AI. The site saves them under your profile, builds study cards, quizzes you over time with spaced repetition, and helps you cram before a quiz or test. No notes? Practice **91 built-in topics across 7 subjects, from elementary school to AP, IB and college**, or study any of **60 AP and IB courses** unit by unit.
 
 ## Use it
 
@@ -32,6 +32,8 @@ Both versions are built from the same code (`python3 tools/build-artifact.py` ma
   - ✅ **True / False** quick rounds
   - 📝 **Practice test**: timed, no answers shown until the end, then a review of every question
   - ⏳ **Put in order**: timelines and step-by-step processes
+- **Live counter** (claude.ai version): how many students have joined, and how many this week, updating live.
+- **Help and Terms**: a Help tab explains every feature step by step; Terms of use say the site's code, design and content may not be copied.
 - **Shared library** (claude.ai version): share a set of notes, with its study cards and AI study guide, for everyone using the site. Browse and search shared guides, add any of them to your own notes, and send a class a link straight to one. Each person can only change their own; the site's owner can remove any guide.
 - **Upload PDF and Word files**: notes can come from a PDF, a Word (.docx) file, or a .txt/.md file, read right in the browser (nothing is uploaded anywhere).
 - **AI study guide from your notes**: on any note, AI writes a full guide (overview, key ideas, a concept map, worked examples, common mistakes, timelines, a self-check) using only what's in the notes.
@@ -108,6 +110,8 @@ js/file-text.js     reads PDF and Word files into notes
 js/guides-*.js      the study guide for every built-in topic, one file per subject
 js/modes.js         study-mode logic: flashcards, learn, matching, true/false, tests, put in order, badges
 js/shared-library.js  the shared library (claude.ai version)
+js/community.js     live "students have joined" counter (claude.ai version)
+js/help.js          Help (how to use, About) and Terms of use pages
 js/study.js         study-mode screens, study guides, mistake notebook, progress page
 js/app.js           UI views and routing
 vendor/katex/       KaTeX math rendering (MIT license)

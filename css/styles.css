@@ -622,3 +622,26 @@ mark, .hl { background: linear-gradient(transparent 52%, var(--hl-mark) 52%, var
 .grade-list.bad li { color: var(--bad); }
 .form-error { color: var(--bad); margin: 0; }
 @media print { .sheet { border: 0; padding: 0; } .sheet-terms { columns: 2; } }
+
+/* live counter */
+.live-counter { display: inline-flex; align-items: center; gap: .45rem; margin: .4rem 0 .8rem; padding: .35rem .8rem; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); font-size: .92rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.live-counter b { color: var(--text); }
+.live-dot { width: .55rem; height: .55rem; border-radius: 50%; background: var(--good); box-shadow: 0 0 0 0 color-mix(in srgb, var(--good) 60%, transparent); animation: livepulse 2s infinite; flex: none; }
+@keyframes livepulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--good) 55%, transparent); } 70% { box-shadow: 0 0 0 .5rem transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
+
+/* promises on the landing page */
+.promises { list-style: none; display: flex; flex-wrap: wrap; gap: .35rem 1rem; padding: 0; margin: 0 0 .6rem; font-size: .9rem; color: var(--muted); }
+.promises li::before { content: "✓ "; color: var(--good); font-weight: 700; }
+
+/* help and terms */
+.help-toc { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 72px); }
+.help-toc ul { list-style: none; padding: 0; margin: 0; display: grid; gap: .35rem; }
+.help-toc .link-like { background: none; border: 0; padding: 0; font: inherit; text-align: left; color: var(--primary); cursor: pointer; }
+.help-sec { scroll-margin-top: 80px; }
+.help-sec ol, .help-sec ul, .terms ul { padding-left: 1.3rem; display: grid; gap: .4rem; }
+.help-sec p, .help-sec li, .terms p, .terms li { max-width: 70ch; }
+.promise { list-style: none; padding: 0 !important; }
+.terms h2 { font-size: 1.08rem; margin-top: 1.1rem; }
+.footer-links { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+.footer-links a { color: var(--muted); }
+@media (max-width: 900px) { .help-toc { position: static; order: -1; } }
