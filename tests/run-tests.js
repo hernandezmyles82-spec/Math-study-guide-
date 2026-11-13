@@ -1,6 +1,6 @@
 /* Node test runner: node tests/run-tests.js */
 const path = require('path');
-['util', 'store', 'parser', 'library', 'library-subjects', 'library-more', 'generators', 'generators-subjects', 'generators-more', 'courses', 'quiz', 'guides', 'guides-content', 'modes', 'ai-format'].forEach((f) => require(path.join(__dirname, '..', 'js', f + '.js')));
+['util', 'store', 'parser', 'library', 'library-subjects', 'library-more', 'generators', 'generators-subjects', 'generators-more', 'courses', 'quiz', 'guides', 'guides-content', 'guides-math', 'modes', 'ai-format'].forEach((f) => require(path.join(__dirname, '..', 'js', f + '.js')));
 const { U, Library, Generators, parseNotes, Store, Quiz } = globalThis.MSG;
 let fails = 0, passes = 0;
 const ok = (cond, msg) => { if (cond) passes++; else { fails++; console.log('FAIL:', msg); } };
