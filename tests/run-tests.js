@@ -1,6 +1,6 @@
 /* Node test runner: node tests/run-tests.js */
 const path = require('path');
-['util', 'store', 'parser', 'library', 'library-subjects', 'library-more', 'generators', 'generators-subjects', 'generators-more', 'courses', 'quiz', 'guides', 'guides-content', 'guides-math', 'modes', 'ai-format'].forEach((f) => require(path.join(__dirname, '..', 'js', f + '.js')));
+['util', 'store', 'parser', 'library', 'library-subjects', 'library-more', 'generators', 'generators-subjects', 'generators-more', 'courses', 'quiz', 'guides', 'guides-content', 'guides-math', 'guides-science', 'guides-history', 'modes', 'ai-format'].forEach((f) => require(path.join(__dirname, '..', 'js', f + '.js')));
 const { U, Library, Generators, parseNotes, Store, Quiz } = globalThis.MSG;
 let fails = 0, passes = 0;
 const ok = (cond, msg) => { if (cond) passes++; else { fails++; console.log('FAIL:', msg); } };
@@ -151,7 +151,7 @@ Guides.ids().forEach((id) => {
   ok(g.timeline.every((t) => Number.isFinite(t.year)), 'guide ' + id + ' timeline years parse');
   ok(new Set(g.timeline.map((t) => t.year)).size === g.timeline.length || g.timeline.length === 0, 'guide ' + id + ' timeline has no duplicate years');
 });
-ok(Guides.yearOf('476 CE') === 476 && Guides.yearOf('3000 BCE') === -3000 && Guides.yearOf('1914–1918') === 1914 && Guides.yearOf('c. 1450') === 1450 && Guides.yearOf('Step 2') === null, 'year parsing');
+ok(Guides.yearOf('476 CE') === 476 && Guides.yearOf('3000 BCE') === -3000 && Guides.yearOf('1914–1918') === 1914 && Guides.yearOf('c. 1450') === 1450 && Guides.yearOf('Step 2') === null && Guides.yearOf('4.6 billion years ago') === -4.6e9 && Guides.yearOf('300,000 years ago') === -300000, 'year parsing');
 const tg = Guides.parseOne('t', '## Overview\nHi\n## Timeline\n- 1776: A\n- 1492: B\n## In order: Steps\n- a\n- b\n- c\n## Check yourself\nQ: q1\nA: a1\n');
 ok(tg.timeline.length === 2 && tg.orders[0].items.length === 3 && tg.check[0].a === 'a1' && tg.sections[0].text === 'Hi', 'guide format parses');
 

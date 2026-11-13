@@ -13,7 +13,8 @@
      Answer: the final answer
      ## Common mistakes
      ## Timeline
-     - 1776: Declaration of Independence        (years may be "476 CE", "3000 BCE", "1914–1918")
+     - 1776: Declaration of Independence        (years may be "476 CE", "3000 BCE", "1914–1918",
+                                                 or "4.6 billion years ago")
      ## In order: Steps of mitosis
      - Prophase: chromosomes condense            (listed in the correct order)
      ## Check yourself
@@ -26,6 +27,8 @@
 
   /* "1776", "476 CE", "3000 BCE", "c. 1450", "1914–1918" → a sortable number (BCE is negative). */
   function yearOf(s) {
+    const ago = String(s).match(/^(?:about\s+)?([\d.,]+)\s*(thousand|million|billion)?\s+years\s+ago$/i);
+    if (ago) return -Number(ago[1].replace(/,/g, '')) * ({ thousand: 1e3, million: 1e6, billion: 1e9 }[String(ago[2]).toLowerCase()] || 1);
     const m = String(s).match(/^(?:c\.\s*|about\s+)?(\d{1,4})(?:\s*[–-]\s*\d{1,4})?\s*(BCE|BC|CE|AD)?$/i);
     if (!m) return null;
     const y = Number(m[1]);
